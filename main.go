@@ -119,6 +119,7 @@ func (m model) View() string {
 func main() {
 	var org = "unknown"
 	// Check for genesys cloud environment
+	fmt.Println("Checking for Genesys Cloud environment variables")
 	config, err := genesysLogin.GenesysLogin()
 	if err != nil {
 		org = "not provided"
