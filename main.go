@@ -10,11 +10,13 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mcphee11/mcphee11-tui/genesysLogin"
 	"github.com/mcphee11/mcphee11-tui/googleBotMigrate"
 	"github.com/mcphee11/mcphee11-tui/pwaBanking"
 	"github.com/mcphee11/mcphee11-tui/searchReleaseNotes"
 	"github.com/mcphee11/mcphee11-tui/ttsChanger"
 	"github.com/mcphee11/mcphee11-tui/utils"
+	"github.com/mypurecloud/platform-client-sdk-go/platformclientv2"
 )
 
 var docStyle = lipgloss.NewStyle().Margin(1, 2)
@@ -84,10 +86,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.list.Title = "McPhee11 TUI for making life easier"
 				m.list.SetItems(menuMain())
 				m.list.Cursor()
+			case "help":
+				m.list.Title = "Help Menu"
+				m.list.SetItems(menuHelp())
+				m.list.Cursor()
 			case "version":
 				m.list.Title = utils.GetVersion()
 			default:
-				if strings.Contains(selected.id, "https://help.mypurecloud.com") {
+				if strings.Contains(selected.id, "https://") {
 					err := openURL(selected.id)
 					if err != nil {
 						fmt.Println(err)
@@ -111,8 +117,23 @@ func (m model) View() string {
 }
 
 func main() {
+	var org = "unknown"
+	// Check for genesys cloud environment
+	config, err := genesysLogin.GenesysLogin()
+	if err != nil {
+		org = "not provided"
+	} else {
+		apiInstance := platformclientv2.NewOrganizationApiWithConfig(config)
+		data, _, err := apiInstance.GetOrganizationsMe()
+		if err != nil {
+			fmt.Printf("Error calling GetOrganizationsMe: %v\n", err)
+		} else {
+			org = *data.Name
+		}
+	}
+
 	m := model{list: list.New(menuMain(), list.NewDefaultDelegate(), 0, 0)}
-	m.list.Title = "McPhee11 TUI for making life easier"
+	m.list.Title = "McPhee11 TUI - Genesys Cloud ORG: " + org
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
@@ -139,6 +160,7 @@ func menuMain() []list.Item {
 		item{id: "ttsChanger", title: "Update to Genesys Enhanced TTS", desc: "Update the TTS engine used in your Genesys Voice BOTs"},
 		item{id: "botMigrate", title: "Google Bot Migration", desc: "Easily migrate Google Bots (ES & CX) to Genesys Digital Bots"},
 		item{id: "flowBackup", title: "Backup Flows", desc: "Take a backup of your Genesys Flows"},
+		item{id: "help", title: "Help Menu", desc: "Open the help menu"},
 		item{id: "version", title: "Version", desc: "Display installed version"},
 	}
 }
@@ -170,6 +192,15 @@ func menuSearchReleaseNotes(search []map[string]string) []list.Item {
 	}
 	list = append(list, item{id: "backMain", title: "Back", desc: "Back to the previous menu"})
 	return list
+}
+
+func menuHelp() []list.Item {
+	return []list.Item{
+		item{id: "https://github.com/mcphee11/mcphee11-tui", title: "GitHub repo", desc: "Open the GitHub repository"},
+		item{id: "https://help.mypurecloud.com", title: "Genesys Cloud Help", desc: "Open the Genesys Cloud Help Center"},
+		item{id: "https://developer.genesys.cloud/", title: "Genesys Cloud Developer Center", desc: "Open the Genesys Cloud Developer website"},
+		item{id: "backMain", title: "Back", desc: "Back to the previous menu"},
+	}
 }
 
 func openURL(url string) error {

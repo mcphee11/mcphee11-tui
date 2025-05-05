@@ -11,20 +11,17 @@ func GenesysLogin() (configReturned *platformclientv2.Configuration, err error) 
 
 	region := os.Getenv("MCPHEE11_TUI_REGION")
 	if region == "" {
-		fmt.Println("Environment variable MCPHEE11_TUI_REGION is not set")
-		return
+		return nil, fmt.Errorf("environment variable MCPHEE11_TUI_REGION is not set")
 	}
 
 	clientId := os.Getenv("MCPHEE11_TUI_CLIENT_ID")
 	if region == "" {
-		fmt.Println("Environment variable MCPHEE11_TUI_CLIENT_ID is not set")
-		return
+		return nil, fmt.Errorf("environment variable MCPHEE11_TUI_CLIENT_ID is not set")
 	}
 
 	secret := os.Getenv("MCPHEE11_TUI_SECRET")
 	if region == "" {
-		fmt.Println("Environment variable MCPHEE11_TUI_SECRET is not set")
-		return
+		return nil, fmt.Errorf("environment variable MCPHEE11_TUI_SECRET is not set")
 	}
 
 	//Do Genesys Cloud OAuth
