@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="robots" content="noindex" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="alternate icon" class="js-site-favicon" type="image/png" href="./LOGO" />
+    <title>Home</title>
+    <meta name="theme-color" content="THEME_COLOR" />
+    <link rel="stylesheet" href="index.css" />
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap" rel="stylesheet" />
+    <link rel="manifest" href="manifest.json" />
+    <script defer src="script.js"></script>
+    <script defer src="genesys.js"></script>
+    <script type="text/javascript" charset="utf-8">
+      ;(function (g, e, n, es, ys) {
+        g['_genesysJs'] = e
+        g[e] =
+          g[e] ||
+          function () {
+            ;(g[e].q = g[e].q || []).push(arguments)
+          }
+        g[e].t = 1 * new Date()
+        g[e].c = es
+        ys = document.createElement('script')
+        ys.async = 1
+        ys.src = n
+        ys.charset = 'utf-8'
+        document.head.appendChild(ys)
+      })(window, 'Genesys', 'https://apps.GC_REGION/genesys-bootstrap/genesys.min.js', {
+        environment: 'GC_ENVIRONMENT',
+        deploymentId: 'GC_DEPLOYMENT_ID',
+        debug: false,
+      })
+    </script>
+    <script defer src="https://storage.googleapis.com/genesys_example/genesysSurvey.min.js"></script>
+  </head>
+  <body style="background-image: url(./svgs/anz_bank_background.png)">
+    <div id="topbar" class="topbar">
+      <img src="./BANNER" />
+    </div>
+    <span class="spacer"> </span>
+    <div class="hero">
+      <h2 style="margin-left: 20px; color: white">Welcome back</h2>
+      <h1 id="name" style="margin-left: 20px; color: white"></h1>
+      <div style="display: flex; justify-content: space-evenly; margin-top: 50px; padding-bottom: 20px">
+        <button id="first" class="hero_buttons">
+          <div>
+            <img id="transfer_img" src="./svgs/refresh_white.svg" style="vertical-align: middle" />
+          </div>
+          Transfer
+        </button>
+        <button id="second" class="hero_buttons">
+          <div>
+            <img id="transfer_img" src="./svgs/dollar_white.svg" style="vertical-align: middle" />
+          </div>
+          Pay
+        </button>
+        <button id="third" class="hero_buttons">
+          <div>
+            <img id="transfer_img" src="./svgs/more_white.svg" style="vertical-align: middle" />
+          </div>
+          More
+        </button>
+      </div>
+    </div>
+
+    <div id="main" class="main"></div>
+    <div class="navbar">
+      <a id="account" href="#account">
+        <img id="account_img" class="icon_bottom" src="./svgs/account_grey.svg" />
+        <p>Accounts</p>
+      </a>
+      <a id="doc" href="#doc">
+        <img id="doc_img" class="icon_bottom" src="./svgs/doc_grey.svg" />
+        <p>Transactions</p>
+      </a>
+      <a id="anz_plus" href="#anz_plus">
+        <img id="anz_plus_img" class="icon_bottom_blue" src="./svgs/anz_logo.svg" style="margin-bottom: 3px" />
+        <p>ANZ Plus</p>
+      </a>
+      <a id="support" href="#support">
+        <img id="support_img" class="icon_bottom" src="./svgs/msg_grey.svg" />
+        <p>Support</p>
+      </a>
+      <a id="profile" href="#profile">
+        <img id="profile_img" class="icon_bottom" src="./svgs/profile_grey.svg" />
+        <p>Profile</p>
+      </a>
+    </div>
+
+    <dialog id="modal_dispute" style="text-align: center">
+      <p>Please select from the below options:</p>
+      <div style="display: flex; justify-content: space-evenly">
+        <a id="message" href="#message" style="text-decoration: none; width: 40%">
+          <img id="message_grey" src="./svgs/msg_grey.svg" style="margin: 10px; width: 50px" />
+          <p style="color: black">Available <strong>now</strong></p>
+        </a>
+        <a id="phone" href="tel:+61281884705" style="text-decoration: none; width: 40%">
+          <img id="phone_img" src="./svgs/phone_grey.svg" style="margin: 10px; width: 50px" />
+          <p style="color: black">Phone wait time is currently <strong style="color: red">15min</strong></p>
+        </a>
+      </div>
+      <button class="login" id="modalClose" style="max-width: 200px; height: 30px">Close</button>
+    </dialog>
+  </body>
+</html>

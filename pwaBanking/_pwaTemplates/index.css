@@ -1,0 +1,246 @@
+:root {
+  --theme-color: THEME_COLOR;
+}
+
+body {
+  margin: 0px;
+  padding: 0px;
+  font-family: "Roboto", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+  background-color: white;
+  color: black;
+}
+
+.main {
+  display: inline-flex;
+  flex-wrap: wrap;
+  height: calc(100vh - 400px);
+  position: relative;
+  overflow: auto;
+  justify-content: space-evenly;
+  width: 100%;
+  border-top-left-radius: 5%;
+  border-top-right-radius: 5%;
+  background-color: white;
+}
+
+.spacer {
+  display: block;
+  height: 57px
+}
+
+.subject {
+  margin: auto auto auto 5px;
+}
+
+fieldset {
+  display: grid;
+  width: 300px;
+  justify-content: center;
+  border: none;
+  text-align: center;
+}
+
+fieldset label {
+  align-self: center;
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+fieldset p {
+  margin: 2px;
+}
+
+form {
+  display: grid;
+  justify-content: center;
+  margin-top: 100px;
+}
+
+.formButtons {
+  display: flex;
+  justify-content: center;
+}
+
+.login {
+  margin: 50px auto;
+  display: block;
+  background-color: var(--theme-color);
+  color: white;
+  border-radius: 5px;
+  border: none;
+  padding: 8px;
+  width: 100px;
+}
+
+.hero {
+  padding-top: 20px;
+  height: 240px;
+}
+
+.hero_buttons {
+  width: 100px;
+  height: 50px;
+  border-radius: 8%;
+  background-color: #004164;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.account_row {
+  margin: 8px;
+  height: 100px;
+  display: flex;
+}
+
+.account_left {
+  width: 100px;
+  height: 100px;
+  align-content: center;
+  text-align: center;
+  padding-left: 10px;
+}
+
+.account_middle {
+  width: 100%;
+  height: 100px;
+}
+
+.account_middle_text {
+  padding-left: 10px;
+}
+
+.account_right {
+  width: 150px;
+  height: 100px;
+  align-content: center;
+  text-align: center;
+  display: flex;
+}
+
+.account_button {
+  border: none;
+  background-color: transparent;
+  cursor: pointer;
+}
+
+dialog {
+  border-radius: 5%;
+  border-color: #004164;
+}
+
+.pin_code {
+  color: white;
+  font-size: 5em;
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  width: 350px;
+  margin: 30px auto auto auto;
+}
+
+.keypad_button {
+  width: 100px;
+  height: 100px;
+  border: 1px;
+  border-color: white;
+  border-style: solid;
+  background-color: transparent;
+  color: white;
+  font-size: xx-large;
+  margin: auto auto 20px auto;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* Style The Dropdown Button */
+.dropbtn {
+  background-color: #4CAF50;
+  color: white;
+  padding: 16px;
+  font-size: 16px;
+  border: none;
+  cursor: pointer;
+}
+
+/* The container <div> - needed to position the dropdown content */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+/* Dropdown Content (Hidden by Default) */
+.dropdown-content {
+  display: none;
+  right: 0;
+  position: absolute;
+  background-color: #f9f9f9;
+  min-width: 160px;
+  box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+  border-radius: 5%;
+  z-index: 1;
+}
+
+/* Links inside the dropdown */
+.dropdown-content a {
+  color: black;
+  padding: 12px 16px;
+  text-decoration: none;
+  display: block;
+}
+
+/* ----- ToolBar CSS PARTS ----- */
+
+/* Place the toolbar at the top of the page, and make it stick */
+.topbar {
+  /*background-color: var(--theme-color);*/
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  height: 57px;
+  display: flex;
+  justify-content: center;
+}
+
+/* Place the navbar at the bottom of the page, and make it stick */
+.navbar {
+  /* background-color: var(--theme-color); */
+  background-color: white;
+  overflow: hidden;
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.icon_bottom {
+  width: 40px;
+  filter: invert(66%) sepia(2%) saturate(0%) hue-rotate(350deg) brightness(92%) contrast(92%);
+}
+
+.icon_bottom_blue {
+  width: 40px;
+  filter: invert(36%) sepia(97%) saturate(3855%) hue-rotate(181deg) brightness(91%) contrast(95%);
+}
+
+.navbar p {
+  margin: 1px;
+  font-size: xx-small;
+  color: grey;
+}
+
+/* Style the links inside the navigation bar */
+.navbar a {
+  float: left;
+  display: block;
+  text-align: center;
+  padding: 14px 20px;
+  text-decoration: none;
+  font-size: 17px;
+}
