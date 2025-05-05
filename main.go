@@ -135,8 +135,8 @@ func main() {
 func menuMain() []list.Item {
 	return []list.Item{
 		item{id: "searchReleases", title: "Search Release Notes", desc: "Search the Genesys Cloud Release Notes"},
-		item{id: "ttsChanger", title: "Update to Genesys Enhanced TTS", desc: "Update the TTS engine used in your Genesys Voice BOTs"},
 		item{id: "pwaBanking", title: "Build Banking PWA", desc: "Building a PWA mobile app for demos based on banking"},
+		item{id: "ttsChanger", title: "Update to Genesys Enhanced TTS", desc: "Update the TTS engine used in your Genesys Voice BOTs"},
 		item{id: "botMigrate", title: "Google Bot Migration", desc: "Easily migrate Google Bots (ES & CX) to Genesys Digital Bots"},
 		item{id: "flowBackup", title: "Backup Flows", desc: "Take a backup of your Genesys Flows"},
 		item{id: "version", title: "Version", desc: "Display installed version"},
