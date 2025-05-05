@@ -28,7 +28,7 @@ func SearchReleaseNotes(searchString string) []map[string]string {
 
 		if strings.Contains(strings.ToLower(e.Text), strings.ToLower(searchString)) {
 			var release = map[string]string{
-				"section": e.DOM.Prev().Text(),
+				"section": e.DOM.Prev().Text() + " | " + strings.TrimPrefix(strings.TrimSuffix(e.DOM.NextAllFiltered("p.view").First().Children().AttrOr("href", ""), "/"), "https://help.mypurecloud.com/releasenote/"),
 				"link":    e.DOM.NextAllFiltered("p.view").First().Children().AttrOr("href", ""),
 				"notes":   strings.TrimPrefix(strings.TrimSuffix(strings.ReplaceAll(e.Text, "\n", " | "), " | "), " | "),
 			}
