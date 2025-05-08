@@ -5,11 +5,11 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mcphee11/mcphee11-tui/flows"
 	"github.com/mcphee11/mcphee11-tui/genesysLogin"
 	"github.com/mcphee11/mcphee11-tui/googleBotMigrate"
 	"github.com/mcphee11/mcphee11-tui/pwaBanking"
@@ -22,18 +22,31 @@ import (
 var docStyle = lipgloss.NewStyle().Margin(1, 2)
 
 type item struct {
-	title, desc, id string
+	title, desc, typeSelected, id string
 }
 
-func (i item) Title() string       { return i.title }
-func (i item) Description() string { return i.desc }
-func (i item) Id() string          { return i.id }
-func (i item) FilterValue() string { return i.title }
+func (i item) Title() string        { return i.title }
+func (i item) Description() string  { return i.desc }
+func (i item) Id() string           { return i.id }
+func (i item) TypeSelected() string { return i.typeSelected }
+func (i item) FilterValue() string  { return i.title }
 
 type model struct {
 	list             list.Model
 	lastSelectedItem item
 }
+
+type ttsSelection struct {
+	ttsGet        string
+	ttsAPIGet     string
+	ttsSet        string
+	flows         []map[string]string
+	downloadedDir string
+	updatedDir    string
+}
+
+var ttsData ttsSelection
+var genesysLoginConfig *platformclientv2.Configuration
 
 func (m model) Init() tea.Cmd {
 	return nil
@@ -47,25 +60,34 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.String() == "enter" {
 			selected := m.list.SelectedItem().(item)
-			m.lastSelectedItem.id = selected.id
+			m.lastSelectedItem = selected
 
-			switch selected.id {
+			switch selected.typeSelected {
 			// TTS
 			case "ttsChanger":
-				m.list.Title = "Select the Language you need to use"
-				m.list.SetItems(menuTTSLanguage())
+				m.list.Title = "Select the Voice you want to replace"
+				voices := ttsChanger.CurrentTTSVoices(genesysLoginConfig)
+				m.list.SetItems(menuCurrentTTSVoices(voices, "ttsGet"))
 				m.list.Cursor()
-			case "en-AU":
-				m.list.Title = "Select the Amazon Polly Voice you need to use"
-				m.list.SetItems(menuTTSenAU())
+			case "ttsGet":
+				ttsData.ttsGet = selected.Title()
+				ttsData.ttsAPIGet = selected.id
+				m.list.Title = "Select the Voice you want to SET"
+				voices := ttsChanger.CurrentTTSVoices(genesysLoginConfig)
+				m.list.SetItems(menuCurrentTTSVoices(voices, "ttsSet"))
+				m.list.ResetFilter()
 				m.list.Cursor()
-			case "setTTS,en-AU":
-				m.list.Title = "Setting the TTS engine"
+			case "ttsSet":
+				ttsData.ttsSet = selected.Title()
+				m.list.Title = "These flows include " + ttsData.ttsGet + ". Update one or ALL"
+				flows := ttsChanger.GetFlows(genesysLoginConfig, "genesys_enhanced/"+ttsData.ttsAPIGet)
+				ttsData.flows = flows
+				m.list.SetItems(menuCurrentFlows(flows, "flowUpdate"))
+				m.list.ResetFilter()
+				m.list.Cursor()
+			case "flowUpdate":
+				m.list.Title = "Updating..."
 				return m, tea.Quit
-			case "backTTSLanguage":
-				m.list.Title = "Select the Language you need to use"
-				m.list.SetItems(menuTTSLanguage())
-				m.list.Cursor()
 			// PWA
 			case "pwaBanking":
 				m.list.Title = "Building Banking PWA"
@@ -92,14 +114,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.list.Cursor()
 			case "version":
 				m.list.Title = utils.GetVersion()
-			default:
-				if strings.Contains(selected.id, "https://") {
-					err := openURL(selected.id)
-					if err != nil {
-						fmt.Println(err)
-						os.Exit(1)
-					}
+			case "link":
+				err := openURL(selected.id)
+				if err != nil {
+					fmt.Println(err)
+					os.Exit(1)
 				}
+			default:
+				m.list.Title = "DEFAULT"
 			}
 		}
 	case tea.WindowSizeMsg:
@@ -124,6 +146,7 @@ func main() {
 	if err != nil {
 		org = "not provided"
 	} else {
+		genesysLoginConfig = config
 		apiInstance := platformclientv2.NewOrganizationApiWithConfig(config)
 		data, _, err := apiInstance.GetOrganizationsMe()
 		if err != nil {
@@ -144,42 +167,25 @@ func main() {
 		os.Exit(1)
 	}
 
-	switch returnedModel.(model).lastSelectedItem.id {
+	switch returnedModel.(model).lastSelectedItem.typeSelected {
 	case "pwaBanking":
 		pwaBanking.MainInputs()
-	case "setTTS,en-AU":
-		ttsChanger.TTSChanger(returnedModel.(model).lastSelectedItem.id)
 	case "botMigrate":
 		googleBotMigrate.MainInputs()
+	case "flowUpdate":
+		flows.FlowsLoadingMainBackup(returnedModel.(model).lastSelectedItem.id, ttsData.flows, ttsData.ttsGet, ttsData.ttsSet, true)
 	}
 }
 
 func menuMain() []list.Item {
 	return []list.Item{
-		item{id: "searchReleases", title: "Search Release Notes", desc: "Search the Genesys Cloud Release Notes"},
-		item{id: "pwaBanking", title: "Build Banking PWA", desc: "Building a PWA mobile app for demos based on banking"},
-		item{id: "ttsChanger", title: "Update to Genesys Enhanced TTS", desc: "Update the TTS engine used in your Genesys Voice BOTs"},
-		item{id: "botMigrate", title: "Google Bot Migration", desc: "Easily migrate Google Bots (ES & CX) to Genesys Digital Bots"},
-		item{id: "flowBackup", title: "Backup Flows", desc: "Take a backup of your Genesys Flows"},
-		item{id: "help", title: "Help Menu", desc: "Open the help menu"},
-		item{id: "version", title: "Version", desc: "Display installed version"},
-	}
-}
-
-func menuTTSLanguage() []list.Item {
-	return []list.Item{
-		item{id: "en-AU", title: "en-AU", desc: "English (Australia)"},
-		item{id: "en-GB", title: "en-GB", desc: "English (United Kingdom)"},
-		item{id: "en-US", title: "en-US", desc: "English (United States)"},
-		item{id: "es-ES", title: "es-ES", desc: "Spanish (Spain)"},
-		item{id: "backMain", title: "Back", desc: "Back to the previous menu"},
-	}
-}
-
-func menuTTSenAU() []list.Item {
-	return []list.Item{
-		item{id: "setTTS,en-AU", title: "Olivia", desc: "Female"},
-		item{id: "backTTSLanguage", title: "Back", desc: "Back to the previous menu"},
+		item{typeSelected: "searchReleases", title: "Search Release Notes", desc: "Search the Genesys Cloud Release Notes"},
+		item{typeSelected: "pwaBanking", title: "Build Banking PWA", desc: "Building a PWA mobile app for demos based on banking"},
+		item{typeSelected: "ttsChanger", title: "Update to Genesys Enhanced TTS", desc: "Update the TTS engine used in your Genesys Voice BOTs"},
+		item{typeSelected: "botMigrate", title: "Google Bot Migration", desc: "Easily migrate Google Bots (ES & CX) to Genesys Digital Bots"},
+		item{typeSelected: "flowBackup", title: "Backup Flows", desc: "Take a backup of your Genesys Flows"},
+		item{typeSelected: "help", title: "Help Menu", desc: "Open the help menu"},
+		item{typeSelected: "version", title: "Version", desc: "Display installed version"},
 	}
 }
 
@@ -189,18 +195,35 @@ func menuSearchReleaseNotes(search []map[string]string) []list.Item {
 		if search[i]["link"] == "" {
 			continue
 		}
-		list = append(list, item{id: search[i]["link"], title: search[i]["notes"], desc: search[i]["section"]})
+		list = append(list, item{typeSelected: "link", id: search[i]["link"], title: search[i]["notes"], desc: search[i]["section"]})
 	}
-	list = append(list, item{id: "backMain", title: "Back", desc: "Back to the previous menu"})
+	list = append(list, item{typeSelected: "backMain", id: "backMain", title: "Back", desc: "Back to the previous menu"})
+	return list
+}
+
+func menuCurrentTTSVoices(voices []map[string]string, ttsType string) []list.Item {
+	var list []list.Item
+	for i := range voices {
+		list = append(list, item{typeSelected: ttsType, id: voices[i]["id"], title: voices[i]["title"], desc: voices[i]["desc"]})
+	}
+	return list
+}
+
+func menuCurrentFlows(flows []map[string]string, flowId string) []list.Item {
+	var list []list.Item
+	list = append(list, item{typeSelected: flowId, id: "ALL", title: "ALL", desc: "Update all the flows with " + ttsData.ttsGet})
+	for i := range flows {
+		list = append(list, item{typeSelected: flowId, id: flows[i]["id"], title: flows[i]["title"], desc: flows[i]["desc"]})
+	}
 	return list
 }
 
 func menuHelp() []list.Item {
 	return []list.Item{
-		item{id: "https://github.com/mcphee11/mcphee11-tui", title: "GitHub repo", desc: "Open the GitHub repository"},
-		item{id: "https://help.mypurecloud.com", title: "Genesys Cloud Help", desc: "Open the Genesys Cloud Help Center"},
-		item{id: "https://developer.genesys.cloud/", title: "Genesys Cloud Developer Center", desc: "Open the Genesys Cloud Developer website"},
-		item{id: "backMain", title: "Back", desc: "Back to the previous menu"},
+		item{typeSelected: "link", id: "https://github.com/mcphee11/mcphee11-tui", title: "GitHub repo", desc: "Open the GitHub repository"},
+		item{typeSelected: "link", id: "https://help.mypurecloud.com", title: "Genesys Cloud Help", desc: "Open the Genesys Cloud Help Center"},
+		item{typeSelected: "link", id: "https://developer.genesys.cloud/", title: "Genesys Cloud Developer Center", desc: "Open the Genesys Cloud Developer website"},
+		item{typeSelected: "backMain", id: "backMain", title: "Back", desc: "Back to the previous menu"},
 	}
 }
 
