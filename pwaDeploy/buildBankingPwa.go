@@ -1,4 +1,4 @@
-package pwaBanking
+package pwaDeploy
 
 import (
 	"embed"
@@ -6,30 +6,42 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 //go:embed _pwaTemplates/*
 var pwaTemplates embed.FS
 
-func BuildPWA(flagName, flagShortName, flagColor, flagIcon, flagBanner, flagRegion, flagEnvironment, flagDeploymentId, flagBucketName string) {
+func buildBankingPwa(flagName, flagShortName, flagColor, flagIcon, flagBanner, flagRegion, flagEnvironment, flagDeploymentId, flagBucketName string, p *tea.Program) {
 
-	// Create project folder
-	fmt.Printf("Creating Dir: %s\n", flagShortName)
+	// Helper to send status messages to the UI thread
+	sendMsgToUI := func(msg tea.Msg) {
+		if p != nil {
+			p.Send(msg)
+		}
+	}
+	sendStatusUpdate := func(s string) {
+		sendMsgToUI(internalUpdateStatusMsg{newStatus: s})
+	}
+	// ------------ Create project folder -----------------
 	err := os.Mkdir(flagShortName, 0777)
 	if err != nil {
 		fmt.Printf("Error creating directory %s, exiting build.", flagShortName)
+		sendStatusUpdate(fmt.Sprintf("Error creating directory %s, exiting build.", flagShortName))
+		sendMsgToUI(stage1CompleteMsg{})
 		return
 	}
 
-	fmt.Printf("Creating Dir: %s/svgs\n", flagShortName)
 	err = os.Mkdir(fmt.Sprintf("%s/svgs", flagShortName), 0777)
 	if err != nil {
 		fmt.Printf("Error creating directory %s/svgs, exiting build.", flagShortName)
+		sendStatusUpdate(fmt.Sprintf("Error creating directory %s/svgs, exiting build.", flagShortName))
+		sendMsgToUI(stage1CompleteMsg{})
 		return
 	}
 
 	// ------------------ create svgs ------------------
-	fmt.Println("Generating Svgs please wait...")
 	svgs, err := pwaTemplates.ReadDir("_pwaTemplates/svgs")
 	if err != nil {
 		fmt.Println(err.Error())
@@ -43,11 +55,12 @@ func BuildPWA(flagName, flagShortName, flagColor, flagIcon, flagBanner, flagRegi
 			_ = os.RemoveAll(flagShortName)
 			return
 		}
-		fmt.Printf("Generated Svg: %s\n", svgs[i].Name())
+		sendStatusUpdate(fmt.Sprintf("Generated Svg: %s\n", svgs[i].Name()))
 	}
+	sendMsgToUI(flowProcessedMsg{})
 
 	// ------------------ create icons ------------------
-	fmt.Println("Generating App Icons this can take a min so please wait...")
+	sendStatusUpdate("Generating App Icons this can take a min so please wait...")
 	icons, err := pwaTemplates.ReadFile("_pwaTemplates/icons.sh")
 	if err != nil {
 		fmt.Println(err.Error())
@@ -76,8 +89,8 @@ func BuildPWA(flagName, flagShortName, flagColor, flagIcon, flagBanner, flagRegi
 		return
 	}
 	os.Remove(fmt.Sprintf("%s/icons.sh", flagShortName))
-	fmt.Println("Generating icons completed... starting build additional files...")
-
+	sendStatusUpdate("Generating icons completed... starting build additional files...")
+	sendMsgToUI(flowProcessedMsg{})
 	// ------------------ move local image files ------------------
 	// TODO add windows support for "/"
 	fileNameIcon := lastString(strings.Split(flagIcon, "/"))
@@ -102,7 +115,7 @@ func BuildPWA(flagName, flagShortName, flagColor, flagIcon, flagBanner, flagRegi
 	}
 
 	// ------------------ build home.html file ------------------
-	fmt.Println("Generating home.html file")
+	sendStatusUpdate("Generating home.html file")
 	home, err := pwaTemplates.ReadFile("_pwaTemplates/home.html")
 	if err != nil {
 		fmt.Println(err.Error())
@@ -123,7 +136,7 @@ func BuildPWA(flagName, flagShortName, flagColor, flagIcon, flagBanner, flagRegi
 	}
 
 	// ------------------ build index.html file ------------------
-	fmt.Println("Generating index.html file")
+	sendStatusUpdate("Generating index.html file")
 	index, err := pwaTemplates.ReadFile("_pwaTemplates/index.html")
 	if err != nil {
 		fmt.Println(err.Error())
@@ -141,7 +154,7 @@ func BuildPWA(flagName, flagShortName, flagColor, flagIcon, flagBanner, flagRegi
 	}
 
 	// ------------------ build index.css file ------------------
-	fmt.Println("Generating index.css file")
+	sendStatusUpdate("Generating index.css file")
 	css, err := pwaTemplates.ReadFile("_pwaTemplates/index.css")
 	if err != nil {
 		fmt.Println(err.Error())
@@ -157,7 +170,7 @@ func BuildPWA(flagName, flagShortName, flagColor, flagIcon, flagBanner, flagRegi
 	}
 
 	// ------------------ build manifest.json file ------------------
-	fmt.Println("Generating manifest.json file")
+	sendStatusUpdate("Generating manifest.json file")
 	manifest, err := pwaTemplates.ReadFile("_pwaTemplates/manifest.json")
 	if err != nil {
 		fmt.Println(err.Error())
@@ -175,7 +188,7 @@ func BuildPWA(flagName, flagShortName, flagColor, flagIcon, flagBanner, flagRegi
 	}
 
 	// ------------------ build deploy.sh file ------------------
-	fmt.Println("Generating deploy.sh file")
+	sendStatusUpdate("Generating deploy.sh file")
 	deploy, err := pwaTemplates.ReadFile("_pwaTemplates/deploy.sh")
 	if err != nil {
 		fmt.Println(err.Error())
@@ -196,19 +209,22 @@ func BuildPWA(flagName, flagShortName, flagColor, flagIcon, flagBanner, flagRegi
 	if err != nil {
 		return
 	}
+	sendStatusUpdate("Generating script.js file")
 	// ------------------ build genesys.js file ------------------
 	err = createFile("genesys.js", flagShortName, "_pwaTemplates/genesys.js")
 	if err != nil {
 		return
 	}
+	sendStatusUpdate("Generating genesys.js file")
 	// ------------------ build service-worker.js file ------------------
 	err = createFile("service-worker.js", flagShortName, "_pwaTemplates/service-worker.js")
 	if err != nil {
 		return
 	}
+	sendStatusUpdate("Build COMPLETED")
+	sendMsgToUI(flowProcessedMsg{})
 
-	fmt.Println("Completed !!! Enjoy your PWA.")
-	fmt.Println("PS. Don't forget there is a deploy.sh file for you to deploy it to GCP")
+	//fmt.Println("PS. Don't forget there is a deploy.sh file for you to deploy it to GCP")
 }
 
 func lastString(ss []string) string {
@@ -216,7 +232,6 @@ func lastString(ss []string) string {
 }
 
 func createFile(file, directory, embeddedLocation string) error {
-	fmt.Printf("Generating %s file", file)
 	data, err := pwaTemplates.ReadFile(embeddedLocation)
 	if err != nil {
 		fmt.Println(err.Error())

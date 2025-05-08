@@ -12,10 +12,11 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mcphee11/mcphee11-tui/pwaDeploy"
 )
 
 var (
-	bannerStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).PaddingLeft(5)
+	//bannerStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).PaddingLeft(5)
 	focusedStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).PaddingLeft(5)
 	blurredStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).PaddingLeft(5)
 	cursorStyle         = focusedStyle
@@ -25,6 +26,9 @@ var (
 
 	focusedSubmitButton = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render("[ Submit ]")
 	blurredSubmitButton = fmt.Sprintf("[ %s ]", lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Submit"))
+
+	bannerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFDF5")).Background(lipgloss.Color("#655ad5")).Padding(0, 1).Render
+	quitApp     bool
 )
 
 type model struct {
@@ -61,7 +65,7 @@ func initialModel() model {
 		case 3:
 			t.Placeholder = "Icon path eg: /home/matt/Pictures/Genesys_Logo_Transparent.jpg"
 		case 4:
-			t.Placeholder = "Banner path eg: /home/matt/Pictures/Genesys_Banner_Transparent.jpg"
+			t.Placeholder = "Banner path eg: /home/matt/Pictures/Genesys_Banner_Transparent.png"
 		case 5:
 			t.Placeholder = "Genesys Region eg: mypurecloud.com.au"
 		case 6:
@@ -88,6 +92,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "esc":
+			quitApp = true
 			return m, tea.Quit
 
 		// Change cursor mode
@@ -175,7 +180,7 @@ func (m *model) updateInputs(msg tea.Msg) tea.Cmd {
 func (m model) View() string {
 	var b strings.Builder
 
-	fmt.Fprintf(&b, "\n%s\n", bannerStyle.Render("PWA Builder"))
+	fmt.Fprintf(&b, "\n     %s\n\n", bannerStyle("Build PWA"))
 
 	for i := range m.inputs {
 		b.WriteString(m.inputs[i].View())
@@ -189,10 +194,7 @@ func (m model) View() string {
 		buttonSubmit = &focusedSubmitButton
 	}
 	fmt.Fprintf(&b, "\n\n     %s\n\n", *buttonSubmit)
-
-	b.WriteString(helpStyle.Render("cursor mode is "))
-	b.WriteString(cursorModeHelpStyle.Render(m.cursorMode.String()))
-	b.WriteString(helpStyle.Render(" (ctrl+r to change style) (ctrl+c to quit)"))
+	b.WriteString(helpStyle.Render("ctrl+c to quit"))
 
 	return b.String()
 }
@@ -205,13 +207,15 @@ func MainInputs() {
 		os.Exit(1)
 	}
 
-	BuildPWA(returnedModel.(model).inputs[0].Value(),
-		returnedModel.(model).inputs[1].Value(),
-		returnedModel.(model).inputs[2].Value(),
-		returnedModel.(model).inputs[3].Value(),
-		returnedModel.(model).inputs[4].Value(),
-		returnedModel.(model).inputs[5].Value(),
-		returnedModel.(model).inputs[6].Value(),
-		returnedModel.(model).inputs[7].Value(),
-		returnedModel.(model).inputs[8].Value())
+	if !quitApp {
+		pwaDeploy.PwaLoadingMain(returnedModel.(model).inputs[0].Value(),
+			returnedModel.(model).inputs[1].Value(),
+			returnedModel.(model).inputs[2].Value(),
+			returnedModel.(model).inputs[3].Value(),
+			returnedModel.(model).inputs[4].Value(),
+			returnedModel.(model).inputs[5].Value(),
+			returnedModel.(model).inputs[6].Value(),
+			returnedModel.(model).inputs[7].Value(),
+			returnedModel.(model).inputs[8].Value())
+	}
 }
