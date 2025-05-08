@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	padding  = 2
+	padding  = 5
 	maxWidth = 80
 )
 
@@ -170,7 +170,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	pad := strings.Repeat("     ", padding)
+	pad := strings.Repeat(" ", padding)
 	// Display current progress percentage directly in the status or help text for clarity
 	return "\n" +
 		pad + bannerStyle("Build PWA Progress") + "\n\n" +
