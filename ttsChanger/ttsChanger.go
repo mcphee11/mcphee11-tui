@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/mcphee11/mcphee11-tui/utils"
 	"github.com/mypurecloud/platform-client-sdk-go/platformclientv2"
 )
 
@@ -31,7 +32,7 @@ func CurrentTTSVoices(config *platformclientv2.Configuration) []map[string]strin
 	ttsVoices, err := getTTSVoicesEnhancedPages(apiIntegrationsInstance, 1)
 
 	if err != nil {
-		fmt.Printf("Error getting architect flows: %v", err)
+		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) Error getting architect flows: %v", err))
 		os.Exit(1)
 	}
 
@@ -39,7 +40,7 @@ func CurrentTTSVoices(config *platformclientv2.Configuration) []map[string]strin
 	for pageNumber <= *ttsVoices.PageCount {
 		nextPage, err := getTTSVoicesEnhancedPages(apiIntegrationsInstance, pageNumber)
 		if err != nil {
-			fmt.Println(err)
+			utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) %s", err))
 			os.Exit(1)
 		}
 		*ttsVoices.Entities = append(*ttsVoices.Entities, *nextPage.Entities...)
@@ -68,7 +69,7 @@ func GetFlows(config *platformclientv2.Configuration, searchId string) []map[str
 	latestPublished, err := getFlowsCUSTOM(config, flowIds)
 
 	if err != nil {
-		fmt.Println(err)
+		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) %s", err))
 		return nil
 	}
 
@@ -100,7 +101,7 @@ func getDependencyTracking(config *platformclientv2.Configuration, searchId stri
 
 	data, _, err := apiInstance.GetArchitectDependencytrackingObject(id, version, objectType, consumedResources, consumingResources, consumedResourceType, consumingResourceType, consumedResourceRequest)
 	if err != nil {
-		fmt.Printf("Error calling GetArchitectDependencytrackingObject: %v\n", err)
+		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) Error calling GetArchitectDependencytrackingObject: %v", err))
 		os.Exit(1)
 	}
 	for _, entity := range *data.ConsumingResources {
@@ -133,7 +134,7 @@ func getFlowsCUSTOM(config *platformclientv2.Configuration, flows []string) (flo
 	flowPage, err := getFlowsPageCUSTOM(config, flows, 1)
 
 	if err != nil {
-		fmt.Println(err)
+		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) %s", err))
 		return nil, err
 	}
 
@@ -141,7 +142,7 @@ func getFlowsCUSTOM(config *platformclientv2.Configuration, flows []string) (flo
 	for pageNumber <= *flowPage.PageCount {
 		nextPage, err := getFlowsPageCUSTOM(config, flows, pageNumber)
 		if err != nil {
-			fmt.Println(err)
+			utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) %s", err))
 			os.Exit(1)
 		}
 		*flowPage.Entities = append(*flowPage.Entities, *nextPage.Entities...)
@@ -171,7 +172,7 @@ func getFlowsPageCUSTOM(config *platformclientv2.Configuration, flows []string, 
 	// Create a new GET request
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		fmt.Println("Error creating request:", err)
+		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) request creation: %s", err))
 		return nil, err
 	}
 
@@ -181,23 +182,23 @@ func getFlowsPageCUSTOM(config *platformclientv2.Configuration, flows []string, 
 	// Send the request
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("Error sending request:", err)
+		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) request sending: %s", err))
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// Check the response status code
 	if resp.StatusCode != http.StatusOK {
-		fmt.Println("Request failed with status code:", resp.StatusCode)
+		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) Request failed with status code: %d", resp.StatusCode))
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		fmt.Println("Response body:", string(bodyBytes))
+		utils.TuiLogger("Info", fmt.Sprintf("(ttsChanger) Response body: %s", string(bodyBytes)))
 		return nil, err
 	}
 
 	// Read the response body
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("Error reading response body:", err)
+		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) Reading body: %s", err))
 		return nil, err
 	}
 
@@ -205,7 +206,7 @@ func getFlowsPageCUSTOM(config *platformclientv2.Configuration, flows []string, 
 	var flowResponse FlowentitylistingCUSTOM
 	err = json.Unmarshal(bodyBytes, &flowResponse)
 	if err != nil {
-		fmt.Println("Error unmarshalling JSON:", err)
+		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) Unmarshalling JSON: %s", err))
 		return nil, err
 	}
 

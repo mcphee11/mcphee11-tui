@@ -1,21 +1,19 @@
 package googleBotMigrate
 
-// A simple example demonstrating the use of multiple text input components
-// from the Bubbles component library.
-
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	googleBotMigrateDeploy "github.com/mcphee11/mcphee11-tui/googleBotMigrate/googleBotMigrateDeployModel"
+	"github.com/mcphee11/mcphee11-tui/utils"
 )
 
 var (
-	bannerStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).PaddingLeft(5)
+	bannerStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFDF5")).Background(lipgloss.Color("#655ad5")).Padding(0, 1).Render
 	focusedStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).PaddingLeft(5)
 	blurredStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).PaddingLeft(5)
 	cursorStyle         = focusedStyle
@@ -165,7 +163,7 @@ func (m *model) updateInputs(msg tea.Msg) tea.Cmd {
 func (m model) View() string {
 	var b strings.Builder
 
-	fmt.Fprintf(&b, "\n%s\n", bannerStyle.Render("Google Bot Migration"))
+	fmt.Fprintf(&b, "\n     %s\n\n", bannerStyle("Google Bot Migration"))
 
 	for i := range m.inputs {
 		b.WriteString(m.inputs[i].View())
@@ -180,9 +178,7 @@ func (m model) View() string {
 	}
 	fmt.Fprintf(&b, "\n\n     %s\n\n", *buttonSubmit)
 
-	b.WriteString(helpStyle.Render("cursor mode is "))
-	b.WriteString(cursorModeHelpStyle.Render(m.cursorMode.String()))
-	b.WriteString(helpStyle.Render(" (ctrl+r to change style) (ctrl+c to quit)"))
+	b.WriteString(helpStyle.Render("ctrl+c to quit"))
 
 	return b.String()
 }
@@ -191,26 +187,24 @@ func MainInputs() {
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
 	returnedModel, err := p.Run()
 	if err != nil {
-		fmt.Println("could not start program: ", err)
-		os.Exit(1)
+		utils.TuiLogger("Fatal", "(googleBotMigrateModel) Could not start program")
+	}
+	// A space i getting added at the start.. not sure why right now??
+	input0 := strings.TrimPrefix(returnedModel.(model).inputs[0].Value(), " ")
+	input1 := strings.TrimPrefix(returnedModel.(model).inputs[1].Value(), " ")
+	input2 := strings.TrimPrefix(returnedModel.(model).inputs[2].Value(), " ")
+	input3 := strings.TrimPrefix(returnedModel.(model).inputs[3].Value(), " ")
+	input4 := strings.TrimPrefix(returnedModel.(model).inputs[4].Value(), " ")
+
+	if input0 != "knowledgeBase" && input0 != "digitalBot" {
+		utils.TuiLogger("Info", "Please enter a valid type of output either: digitalBot or knowledgeBase")
 	}
 
-	if returnedModel.(model).inputs[0].Value() != "knowledgeBase" || returnedModel.(model).inputs[0].Value() != "digitalBot" {
-		fmt.Println("Please enter a valid type of output")
-		os.Exit(1)
+	if input0 == "digitalBot" {
+		googleBotMigrateDeploy.MigrateLoadingMain(input1, input2, input3, input4, "buildDigitalBot")
 	}
-
-	if returnedModel.(model).inputs[0].Value() == "digitalBot" {
-		BuildDigitalBot(returnedModel.(model).inputs[1].Value(),
-			returnedModel.(model).inputs[2].Value(),
-			returnedModel.(model).inputs[3].Value(),
-			returnedModel.(model).inputs[4].Value())
-	}
-	if returnedModel.(model).inputs[0].Value() == "knowledgeBase" {
-		BuildKnowledgeBaseCSV(returnedModel.(model).inputs[1].Value(),
-			returnedModel.(model).inputs[2].Value(),
-			returnedModel.(model).inputs[3].Value(),
-			returnedModel.(model).inputs[4].Value())
+	if input0 == "knowledgeBase" {
+		googleBotMigrateDeploy.MigrateLoadingMain(input1, input2, input3, input4, "buildKnowledgeBase")
 	}
 
 }

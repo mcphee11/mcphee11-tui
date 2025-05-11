@@ -1,4 +1,4 @@
-package flows
+package pwaDeploy
 
 import (
 	"fmt"
@@ -22,55 +22,43 @@ var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Render
 
 // Global variables
 var (
-	status          string
-	updateRequested bool
-	flowCount       int
-	flowId          string
-	savedFlows      []map[string]string
-	savedFlowId     string
-	GlobalProgram   *tea.Program // To send messages from goroutines
-	ttsSetting      string
-	ttsGetting      string
-	folderBackup    string
-	folderUpdate    string
+	status        string
+	stepsInStage  int
+	GlobalProgram *tea.Program // To send messages from goroutines
+	folderStage1  string
+	folderStage2  string
+
+	name, shortName, color, icon, banner, region, environment, deploymentId, bucketName string
 )
 
 // --- New Message Types ---
 type flowProcessedMsg struct{}
-type backupCompleteMsg struct{}
-type updateCompleteMsg struct{}
+type stage1CompleteMsg struct{}
+type stage2CompleteMsg struct{}
 type internalUpdateStatusMsg struct {
 	newStatus string
 }
 
 // --- Model ---
 type model struct {
-	progress       progress.Model
-	backingUp      bool
-	publishing     bool
-	processedCount int
+	progress         progress.Model
+	stage1InProgress bool
+	stage2InProgress bool
+	processedCount   int
 }
 
-func FlowsLoadingMainBackup(flowId string, flows []map[string]string, ttsGet, ttsSet string, updateRequired bool) {
-	flowCount = len(flows)
-	savedFlowId = flowId
-	savedFlows = flows
-	ttsSetting = ttsSet
-	ttsGetting = ttsGet
-	updateRequested = updateRequired
-	if updateRequired {
-		if flowId == "ALL" {
-			status = fmt.Sprintf("Ready. Press 's' to start backup of %d flows. Once completed you will be able to update them", flowCount)
-		} else {
-			status = fmt.Sprintf("Ready. Press 's' to start backup of %d flow. Once completed you will be able to update it", 1)
-		}
-	} else {
-		if flowId == "ALL" {
-			status = fmt.Sprintf("Ready. Press 's' to start backup of %d flows.", flowCount)
-		} else {
-			status = fmt.Sprintf("Ready. Press 's' to start backup of %d flow.", 1)
-		}
-	}
+func PwaLoadingMain(nameIn, shortNameIn, colorIn, iconIn, bannerIn, regionIn, environmentIn, deploymentIdIn, bucketNameIn string) {
+	stepsInStage = 3
+	name = nameIn
+	shortName = shortNameIn
+	color = colorIn
+	icon = iconIn
+	banner = bannerIn
+	region = regionIn
+	environment = environmentIn
+	deploymentId = deploymentIdIn
+	bucketName = bucketNameIn
+	status = fmt.Sprintf("Ready. Press 's' to start build of PWA Locally. Once completed you will be able to Deploy it")
 
 	m := model{
 		progress: progress.New(progress.WithDefaultGradient()),
@@ -80,7 +68,7 @@ func FlowsLoadingMainBackup(flowId string, flows []map[string]string, ttsGet, tt
 	GlobalProgram = p // Store the program instance globally
 
 	if _, err := p.Run(); err != nil {
-		utils.TuiLogger("Fatal", fmt.Sprintf("(flowsModel) Error running program: %s", err))
+		utils.TuiLogger("Fatal", fmt.Sprintf("(pwaDeployModel) could not start program: %s", err))
 	}
 }
 
@@ -95,40 +83,36 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "s":
-			if m.backingUp {
+			if m.stage1InProgress {
 				return m, nil // Already syncing up
 			}
-			m.backingUp = true
+			m.stage1InProgress = true
 			m.processedCount = 0
-			if flowId == "ALL" {
-				status = fmt.Sprintf("Starting backup of %d flows...", flowCount)
-			} else {
-				status = fmt.Sprintf("Starting backup of %s flow...", flowId)
-			}
+			status = fmt.Sprintf("Starting build of %d stages...", stepsInStage)
 
 			m.progress.SetPercent(0) // Reset progress bar
 
-			// Command to start the backup process in a goroutine
+			// Command to start the build process in a goroutine
 			cmd := func() tea.Msg {
-				// Pass necessary data to the backup process
+				// Pass necessary data to the build process
 				// The GlobalProgram allows the goroutine to send messages back
-				go RunBackupProcess(savedFlowId, savedFlows, flowCount, GlobalProgram)
+				go buildBankingPwa(name, shortName, color, icon, banner, region, environment, deploymentId, bucketName, GlobalProgram)
 				return nil // The goroutine will send messages asynchronously
 			}
 			return m, cmd
 		case "u":
-			if m.publishing {
+			if m.stage2InProgress {
 				return m, nil // Already syncing up
 			}
-			m.publishing = true
+			m.stage2InProgress = true
 			m.processedCount = -1
 			m.progress.SetPercent(0) // Reset progress bar
-			if updateRequested && !m.backingUp {
+			if !m.stage1InProgress {
 				// Command to start the update process in a goroutine
 				cmd := func() tea.Msg {
 					// Pass necessary data to the backup process
 					// The GlobalProgram allows the goroutine to send messages back
-					go RunUpdateProcess(flowCount, GlobalProgram)
+					// TODO: go RunUpdateProcess(flagName, shortName, color, icon, banner, region, environment, deploymentId, bucketName string GlobalProgram)
 					return nil // The goroutine will send messages asynchronously
 				}
 				// Now start the Update
@@ -147,32 +131,33 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case flowProcessedMsg:
 		m.processedCount++
 		var currentProgress float64
-		if flowCount > 0 {
-			currentProgress = float64(m.processedCount) / float64(flowCount)
-			utils.TuiLogger("Info", "(flowsModel) flowProcessedMsg increase")
+		if stepsInStage > 0 {
+			currentProgress = float64(m.processedCount) / float64(stepsInStage)
 		} else {
 			currentProgress = 1.0 // Or 0.0 if no flows
-			utils.TuiLogger("Info", "(flowsModel) flowProcessedMsg Set % 1.0")
+			utils.TuiLogger("Info", "(pwaDeployModel) flowProgressedMsg 1.0")
 		}
 		// Status updated by internalUpdateStatusMsg from the goroutine for more detail
+		// status = fmt.Sprintf("Processing... %d/%d complete.", m.processedCount, stepsInStage)
 		return m, m.progress.SetPercent(currentProgress)
 
-	case backupCompleteMsg:
-		m.backingUp = false
-		// Status will be set by the runBackupProcess or a final internalUpdateStatusMsg
-		if !strings.Contains(status, "Backup COMPLETED.") && !strings.HasPrefix(status, "ERROR:") { // Avoid overriding error messages
+	case stage1CompleteMsg:
+		m.stage1InProgress = false
+		// Status will be set by the runStage1Process or a final internalUpdateStatusMsg
+		if !strings.Contains(status, "Build COMPLETED.") && !strings.HasPrefix(status, "ERROR:") { // Avoid overriding error messages
 			status = "ERROR..."
-			utils.TuiLogger("Error", "(flowsModel) stage1CompleteMsg ERROR...")
+			utils.TuiLogger("Info", "(pwaDeployModel) stage1CompleteMsg ERROR")
 		}
+		utils.TuiLogger("Info", "(pwaDeployModel) stage1CompleteMsg COMPLETED")
 		return m, m.progress.SetPercent(1.0)
 
-	case updateCompleteMsg:
-		m.publishing = false
+	case stage2CompleteMsg:
+		m.stage2InProgress = false
 		if status != "Publish COMPLETED." && !strings.HasPrefix(status, "ERROR:") {
 			status = "PUBLISH ERROR"
-			utils.TuiLogger("Error", "(flowsModel) stage2CompleteMsg PUBLISH ERROR")
+			utils.TuiLogger("Info", "(pwaDeployModel) stage2CompleteMsg ERROR")
 		}
-		utils.TuiLogger("Info", "(flowsModel) stage2CompleteMsg Set % 1.0")
+		utils.TuiLogger("Info", "(pwaDeployModel) stage2CompleteMsg COMPLETED")
 		return m, m.progress.SetPercent(1.0)
 	case internalUpdateStatusMsg:
 		status = msg.newStatus
@@ -192,7 +177,7 @@ func (m model) View() string {
 	pad := strings.Repeat(" ", padding)
 	// Display current progress percentage directly in the status or help text for clarity
 	return "\n" +
-		pad + bannerStyle("Flows Backup Progress") + "\n\n" +
+		pad + bannerStyle("Build PWA Progress") + "\n\n" +
 		pad + m.progress.View() + "\n\n" +
 		pad + helpStyle(status) + "\n\n" +
 		pad + helpStyle("Press 'q' to quit.")

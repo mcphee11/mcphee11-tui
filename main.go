@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"runtime"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/mypurecloud/platform-client-sdk-go/platformclientv2"
 )
 
+var Debug bool
 var docStyle = lipgloss.NewStyle().Margin(1, 2)
 
 type item struct {
@@ -117,8 +117,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "link":
 				err := openURL(selected.id)
 				if err != nil {
-					fmt.Println(err)
-					os.Exit(1)
+					utils.TuiLogger("Error", fmt.Sprintf("Open URL Error: %s", err))
 				}
 			default:
 				m.list.Title = "DEFAULT"
@@ -139,18 +138,24 @@ func (m model) View() string {
 }
 
 func main() {
+	// initialize logger
+	err := utils.TuiLoggerStart()
+	if err != nil {
+		panic("Failed to initialize logger: " + err.Error())
+	}
 	var org = "unknown"
 	// Check for genesys cloud environment
-	fmt.Println("Checking for Genesys Cloud environment variables")
+	utils.TuiLogger("Info", "(main) Checking for Genesys Cloud environment variables...")
 	config, err := genesysLogin.GenesysLogin()
 	if err != nil {
 		org = "not provided"
+		utils.TuiLogger("Info", "(main) ORG not provided")
 	} else {
 		genesysLoginConfig = config
 		apiInstance := platformclientv2.NewOrganizationApiWithConfig(config)
 		data, _, err := apiInstance.GetOrganizationsMe()
 		if err != nil {
-			fmt.Printf("Error calling GetOrganizationsMe: %v\n", err)
+			utils.TuiLogger("Error", fmt.Sprintf("(main) Failed calling GetOrganizationsMe: %s", err))
 		} else {
 			org = *data.Name
 		}
@@ -163,8 +168,7 @@ func main() {
 
 	returnedModel, err := p.Run()
 	if err != nil {
-		fmt.Println("Error running program: ", err)
-		os.Exit(1)
+		utils.TuiLogger("Fatal", fmt.Sprintf("(main) Error running program: %s", err))
 	}
 
 	switch returnedModel.(model).lastSelectedItem.typeSelected {
@@ -182,7 +186,7 @@ func menuMain() []list.Item {
 		item{typeSelected: "searchReleases", title: "Search Release Notes", desc: "Search the Genesys Cloud Release Notes"},
 		item{typeSelected: "pwaBanking", title: "Build Banking PWA", desc: "Building a PWA mobile app for demos based on banking"},
 		item{typeSelected: "ttsChanger", title: "Update to Genesys Enhanced TTS", desc: "Update the TTS engine used in your Genesys Voice BOTs"},
-		item{typeSelected: "botMigrate", title: "Google Bot Migration", desc: "Easily migrate Google Bots (ES & CX) to Genesys Digital Bots"},
+		item{typeSelected: "botMigrate", title: "Google Bot Migration", desc: "Easily migrate Google Bots (ES & CX) to Digital Bots or Knowledge Base for Copilot"},
 		item{typeSelected: "flowBackup", title: "Backup Flows", desc: "Take a backup of your Genesys Flows"},
 		item{typeSelected: "help", title: "Help Menu", desc: "Open the help menu"},
 		item{typeSelected: "version", title: "Version", desc: "Display installed version"},
@@ -211,10 +215,17 @@ func menuCurrentTTSVoices(voices []map[string]string, ttsType string) []list.Ite
 
 func menuCurrentFlows(flows []map[string]string, flowId string) []list.Item {
 	var list []list.Item
+	if len(flows) == 0 {
+		utils.TuiLogger("Info", fmt.Sprintf("No flows found Published with TTS: %s", ttsData.ttsGet))
+		list = append(list, item{typeSelected: "backMain", id: "backMain", title: "Back", desc: "Back to the main menu"})
+		return list
+	}
 	list = append(list, item{typeSelected: flowId, id: "ALL", title: "ALL", desc: "Update all the flows with " + ttsData.ttsGet})
 	for i := range flows {
 		list = append(list, item{typeSelected: flowId, id: flows[i]["id"], title: flows[i]["title"], desc: flows[i]["desc"]})
 	}
+	list = append(list, item{typeSelected: "backMain", id: "backMain", title: "Back", desc: "Back to the main menu"})
+	utils.TuiLogger("Info", fmt.Sprintf("%d flows found Published with TTS %s", len(flows), ttsData.ttsGet))
 	return list
 }
 
@@ -229,7 +240,6 @@ func menuHelp() []list.Item {
 
 func openURL(url string) error {
 	var cmd *exec.Cmd
-
 	switch runtime.GOOS {
 	case "linux":
 		cmd = exec.Command("xdg-open", url)
@@ -240,6 +250,5 @@ func openURL(url string) error {
 	default:
 		return fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
 	}
-
 	return cmd.Start()
 }

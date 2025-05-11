@@ -1,13 +1,13 @@
-package pwaDeploy
+package googleBotMigrateDeploy
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mcphee11/mcphee11-tui/utils"
 )
 
 const (
@@ -28,7 +28,7 @@ var (
 	folderStage1  string
 	folderStage2  string
 
-	name, shortName, color, icon, banner, region, environment, deploymentId, bucketName string
+	projectId, lang, flowName, keyPath, migrateType string
 )
 
 // --- New Message Types ---
@@ -47,18 +47,14 @@ type model struct {
 	processedCount   int
 }
 
-func PwaLoadingMain(nameIn, shortNameIn, colorIn, iconIn, bannerIn, regionIn, environmentIn, deploymentIdIn, bucketNameIn string) {
+func MigrateLoadingMain(projectIdIn, langIn, flowNameIn, keyPathIn, migrateTypeIn string) {
 	stepsInStage = 3
-	name = nameIn
-	shortName = shortNameIn
-	color = colorIn
-	icon = iconIn
-	banner = bannerIn
-	region = regionIn
-	environment = environmentIn
-	deploymentId = deploymentIdIn
-	bucketName = bucketNameIn
-	status = fmt.Sprintf("Ready. Press 's' to start build of PWA Locally. Once completed you will be able to Deploy it")
+	projectId = projectIdIn
+	lang = langIn
+	flowName = flowNameIn
+	keyPath = keyPathIn
+	migrateType = migrateTypeIn
+	status = fmt.Sprintf("Ready. Press 's' to start migration of Google Bot Locally. Once completed you will be able to Deploy it")
 
 	m := model{
 		progress: progress.New(progress.WithDefaultGradient()),
@@ -68,8 +64,7 @@ func PwaLoadingMain(nameIn, shortNameIn, colorIn, iconIn, bannerIn, regionIn, en
 	GlobalProgram = p // Store the program instance globally
 
 	if _, err := p.Run(); err != nil {
-		fmt.Println("Oh no!", err)
-		os.Exit(1)
+		utils.TuiLogger("Fatal", "(googleBotMigrateDeployModel) Could not start program")
 	}
 }
 
@@ -89,7 +84,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.stage1InProgress = true
 			m.processedCount = 0
-			status = fmt.Sprintf("Starting build of %d stages...", stepsInStage)
+			status = fmt.Sprintf("Starting migration of %d stages...", stepsInStage)
 
 			m.progress.SetPercent(0) // Reset progress bar
 
@@ -97,7 +92,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd := func() tea.Msg {
 				// Pass necessary data to the build process
 				// The GlobalProgram allows the goroutine to send messages back
-				go buildBankingPwa(name, shortName, color, icon, banner, region, environment, deploymentId, bucketName, GlobalProgram)
+				if migrateType == "buildDigitalBot" {
+					go BuildDigitalBot(projectId, lang, flowName, keyPath, GlobalProgram)
+				}
+				if migrateType == "buildKnowledgeBase" {
+					go BuildKnowledgeBaseCSV(projectId, lang, flowName, keyPath, GlobalProgram)
+				}
 				return nil // The goroutine will send messages asynchronously
 			}
 			return m, cmd
@@ -134,8 +134,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var currentProgress float64
 		if stepsInStage > 0 {
 			currentProgress = float64(m.processedCount) / float64(stepsInStage)
+			utils.TuiLogger("Info", "(googleBotMigrateDeployModel) flowProcessedMsg increase")
 		} else {
 			currentProgress = 1.0 // Or 0.0 if no flows
+			utils.TuiLogger("Info", "(googleBotMigrateDeployModel) flowProcessedMsg Set % 1.0")
 		}
 		// Status updated by internalUpdateStatusMsg from the goroutine for more detail
 		// status = fmt.Sprintf("Processing... %d/%d complete.", m.processedCount, stepsInStage)
@@ -146,6 +148,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Status will be set by the runStage1Process or a final internalUpdateStatusMsg
 		if !strings.Contains(status, "Build COMPLETED.") && !strings.HasPrefix(status, "ERROR:") { // Avoid overriding error messages
 			status = "ERROR..."
+			utils.TuiLogger("Error", "(googleBotMigrateDeployModel) stage1CompleteMsg ERROR...")
 		}
 		return m, m.progress.SetPercent(1.0)
 
@@ -153,7 +156,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.stage2InProgress = false
 		if status != "Publish COMPLETED." && !strings.HasPrefix(status, "ERROR:") {
 			status = "PUBLISH ERROR"
+			utils.TuiLogger("Error", "(googleBotMigrateDeployModel) stage2CompleteMsg PUBLISH ERROR")
 		}
+		utils.TuiLogger("Info", "(googleBotMigrateDeployModel) stage2CompleteMsg Set % 1.0")
 		return m, m.progress.SetPercent(1.0)
 	case internalUpdateStatusMsg:
 		status = msg.newStatus
@@ -173,7 +178,7 @@ func (m model) View() string {
 	pad := strings.Repeat(" ", padding)
 	// Display current progress percentage directly in the status or help text for clarity
 	return "\n" +
-		pad + bannerStyle("Build PWA Progress") + "\n\n" +
+		pad + bannerStyle("Migrate Google BOT Progress") + "\n\n" +
 		pad + m.progress.View() + "\n\n" +
 		pad + helpStyle(status) + "\n\n" +
 		pad + helpStyle("Press 'q' to quit.")

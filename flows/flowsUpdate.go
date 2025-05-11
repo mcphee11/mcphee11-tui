@@ -9,6 +9,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/mcphee11/mcphee11-tui/utils"
 )
 
 // This function runs in a goroutine and performs the update.
@@ -20,8 +21,9 @@ func RunUpdateProcess(totalFlows int, p *tea.Program) {
 			p.Send(msg)
 		}
 	}
-	sendStatusUpdate := func(s string) {
+	sendStatusUpdate := func(t, s string) {
 		sendMsgToUI(internalUpdateStatusMsg{newStatus: s})
+		utils.TuiLogger(t, s) // logging output if enabled
 	}
 
 	// Sent to zero out progress bar
@@ -29,30 +31,30 @@ func RunUpdateProcess(totalFlows int, p *tea.Program) {
 
 	region := os.Getenv("MCPHEE11_TUI_REGION")
 	if region == "" {
-		sendStatusUpdate("ERROR: environment variable MCPHEE11_TUI_REGION is not set")
+		sendStatusUpdate("Error", "ERROR: environment variable MCPHEE11_TUI_REGION is not set")
 		sendMsgToUI(updateCompleteMsg{})
 		return
 	}
 
 	clientId := os.Getenv("MCPHEE11_TUI_CLIENT_ID")
 	if clientId == "" {
-		sendStatusUpdate("ERROR: environment variable MCPHEE11_TUI_CLIENT_ID is not set")
+		sendStatusUpdate("Error", "ERROR: environment variable MCPHEE11_TUI_CLIENT_ID is not set")
 		sendMsgToUI(updateCompleteMsg{})
 		return
 	}
 
 	secret := os.Getenv("MCPHEE11_TUI_SECRET")
 	if secret == "" {
-		sendStatusUpdate("ERROR: environment variable MCPHEE11_TUI_SECRET is not set")
+		sendStatusUpdate("Error", "ERROR: environment variable MCPHEE11_TUI_SECRET is not set")
 		sendMsgToUI(updateCompleteMsg{})
 		return
 	}
 
 	folderUpdate := fmt.Sprintf("flowsUpdate_%s", strconv.FormatInt(time.Now().Unix(), 10))
-	sendStatusUpdate(fmt.Sprintf("Creating update directory: %s", folderUpdate))
+	sendStatusUpdate("Info", fmt.Sprintf("Creating update directory: %s", folderUpdate))
 	err := os.Mkdir(folderUpdate, 0777)
 	if err != nil {
-		sendStatusUpdate(fmt.Sprintf("ERROR: creating directory %s: %v", folderUpdate, err))
+		sendStatusUpdate("Info", fmt.Sprintf("ERROR: creating directory %s: %v", folderUpdate, err))
 		sendMsgToUI(updateCompleteMsg{})
 		return
 	}
@@ -60,7 +62,7 @@ func RunUpdateProcess(totalFlows int, p *tea.Program) {
 	// Getting BackedUp files
 	filesBackedUp, err := os.ReadDir(folderBackup)
 	if err != nil {
-		sendStatusUpdate(fmt.Sprintf("ERROR: reading directory %s: %v", folderBackup, err))
+		sendStatusUpdate("Error", fmt.Sprintf("ERROR: reading directory %s: %v", folderBackup, err))
 		sendMsgToUI(updateCompleteMsg{})
 		return
 	}
@@ -79,7 +81,7 @@ func RunUpdateProcess(totalFlows int, p *tea.Program) {
 
 		content, err := os.ReadFile(oldFilePath)
 		if err != nil {
-			sendStatusUpdate(fmt.Sprintf("ERROR: reading file %s: %v", oldFilePath, err))
+			sendStatusUpdate("Error", fmt.Sprintf("ERROR: reading file %s: %v", oldFilePath, err))
 			continue
 		}
 
@@ -87,19 +89,16 @@ func RunUpdateProcess(totalFlows int, p *tea.Program) {
 
 		err = os.WriteFile(newFilePath, []byte(updatedContent), 0644)
 		if err != nil {
-			sendStatusUpdate(fmt.Sprintf("ERROR: writing file %s: %v", newFilePath, err))
+			sendStatusUpdate("Error", fmt.Sprintf("ERROR: writing file %s: %v", newFilePath, err))
 			continue
 		}
-
-		sendStatusUpdate(fmt.Sprintf("Saved updated voice file: %s", fileName))
+		sendStatusUpdate("Info", fmt.Sprintf("Saved updated voice file: %s", fileName))
 	}
 
 	// Getting Updated files
 	files, err := os.ReadDir(folderUpdate)
 	if err != nil {
-		sendStatusUpdate(fmt.Sprintf("ERROR: reading directory %s: %v", folderUpdate, err))
-		fmt.Printf("ERROR: reading directory %s: %v", folderUpdate, err)
-		os.Exit(1)
+		sendStatusUpdate("Fatal", fmt.Sprintf("ERROR: reading directory %s: %v", folderUpdate, err))
 		sendMsgToUI(updateCompleteMsg{})
 		return
 	}
@@ -114,35 +113,28 @@ func RunUpdateProcess(totalFlows int, p *tea.Program) {
 	// Running archy update
 	if len(updatedYamlFiles) > 1 {
 		if len(updatedYamlFiles) == 0 {
-			sendStatusUpdate("No flows to update up.")
-			fmt.Printf("Line: 115")
-			os.Exit(1)
+			sendStatusUpdate("Info", "No flows to update up.")
 			sendMsgToUI(updateCompleteMsg{})
 			return
 		}
 
 		for i, currentFlow := range updatedYamlFiles {
-			sendStatusUpdate(fmt.Sprintf("Publishing up flow %d/%d: %s...", i+1, totalFlows, currentFlow))
+			sendStatusUpdate("Info", fmt.Sprintf("Publishing up flow %d/%d: %s...", i+1, totalFlows, currentFlow))
 			archyCmd := exec.Command("archy", "publish", "--forceUnlock", "--clientId", clientId, "--clientSecret", secret, "--location", region, "--file", fmt.Sprintf("%s/%s", folderUpdate, currentFlow))
 
 			if err := archyCmd.Run(); err != nil {
-				fmt.Printf("ERROR 126 up %s: %v", currentFlow, err)
-				os.Exit(1)
-				sendStatusUpdate(fmt.Sprintf("ERROR backing up %s: %v", currentFlow, err))
-				// Optionally, decide to stop or continue on error
-				// For now, it continues and reports error for this flow.
-				// TODO add better error logging
+				sendStatusUpdate("Fatal", fmt.Sprintf("ERROR backing up %s: %v", currentFlow, err))
+				// os.Exit triggered on Fatal as want to ensure ALL are backed up first
 			}
 			sendMsgToUI(flowProcessedMsg{}) // Signal one flow is processed
 		}
 	} else { // Single flow update
-		sendStatusUpdate(fmt.Sprintf("Publishing up single flow: %s...", updatedYamlFiles[0]))
+		sendStatusUpdate("Info", fmt.Sprintf("Publishing up single flow: %s...", updatedYamlFiles[0]))
 		archyCmd := exec.Command("archy", "publish", "--forceUnlock", "--clientId", clientId, "--clientSecret", secret, "--location", region, "--file", fmt.Sprintf("%s/%s", folderUpdate, updatedYamlFiles[0]))
 
 		if err := archyCmd.Run(); err != nil {
-			fmt.Printf("ERROR 140 %s", err)
-			os.Exit(1)
-			sendStatusUpdate(fmt.Sprintf("ERROR publishing up %s: %v", updatedYamlFiles[0], err))
+			sendStatusUpdate("Error", fmt.Sprintf("ERROR publishing up %s: %v", updatedYamlFiles[0], err))
+			// decided not to Fatal so others would try to publish
 		}
 		sendMsgToUI(flowProcessedMsg{})
 	}
@@ -152,6 +144,6 @@ func RunUpdateProcess(totalFlows int, p *tea.Program) {
 	if strings.Contains(status, "ERROR:") {
 		finalStatus = "Publish process finished with errors. Check logs."
 	}
-	sendStatusUpdate(finalStatus)
+	sendStatusUpdate("Info", finalStatus)
 	sendMsgToUI(updateCompleteMsg{})
 }

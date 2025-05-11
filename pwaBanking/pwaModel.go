@@ -5,18 +5,17 @@ package pwaBanking
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/mcphee11/mcphee11-tui/pwaDeploy"
+	"github.com/mcphee11/mcphee11-tui/pwaBanking/pwaDeploy"
+	"github.com/mcphee11/mcphee11-tui/utils"
 )
 
 var (
-	//bannerStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).PaddingLeft(5)
 	focusedStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).PaddingLeft(5)
 	blurredStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).PaddingLeft(5)
 	cursorStyle         = focusedStyle
@@ -203,8 +202,7 @@ func MainInputs() {
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
 	returnedModel, err := p.Run()
 	if err != nil {
-		fmt.Println("could not start program: ", err)
-		os.Exit(1)
+		utils.TuiLogger("Fatal", fmt.Sprintf("(pwaModel) could not start program: %s", err))
 	}
 
 	if !quitApp {

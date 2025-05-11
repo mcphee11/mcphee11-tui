@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gocolly/colly"
+	"github.com/mcphee11/mcphee11-tui/utils"
 )
 
 func SearchReleaseNotes(searchString string) []map[string]string {
@@ -20,7 +21,7 @@ func SearchReleaseNotes(searchString string) []map[string]string {
 	})
 
 	c.OnError(func(_ *colly.Response, err error) {
-		fmt.Println("Something went wrong: ", err)
+		utils.TuiLogger("Error", fmt.Sprintf("(searchReleaseNotes) Something went wrong: %s", err))
 		errCount++
 	})
 
@@ -41,6 +42,6 @@ func SearchReleaseNotes(searchString string) []map[string]string {
 
 	c.Wait()
 
-	fmt.Printf("Found String: %s on %d pages. With %d errors\n", searchString, matchedCount, errCount)
+	utils.TuiLogger("Info", fmt.Sprintf("(searchReleaseNotes) Found String: %s on %d pages. With %d errors", searchString, matchedCount, errCount))
 	return releases
 }

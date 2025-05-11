@@ -25,6 +25,7 @@ go.work.sum
 .env
 
 #backup & update Dir
-flowsBackup*
-flowsUpdate*
+flowsBackup/
+flowsUpdate/
 debug/
+mcphee11-tui-log.log

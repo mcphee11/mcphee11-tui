@@ -1,4 +1,4 @@
-package googleBotMigrate
+package googleBotMigrateDeploy
 
 import (
 	"context"
@@ -9,18 +9,34 @@ import (
 
 	dialogflow "cloud.google.com/go/dialogflow/apiv2"
 	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/mcphee11/mcphee11-tui/utils"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
 
-func BuildDigitalBot(projectId, lang, flowName, keyPath string) {
+func BuildDigitalBot(projectId, lang, flowName, keyPath string, p *tea.Program) {
+
+	// Helper to send status messages to the UI thread
+	sendMsgToUI := func(msg tea.Msg) {
+		if p != nil {
+			p.Send(msg)
+		}
+	}
+	sendStatusUpdate := func(t, s string) {
+		sendMsgToUI(internalUpdateStatusMsg{newStatus: s})
+		utils.TuiLogger(t, s) // logging output if enabled
+	}
+
 	intents, err := ListIntents(projectId, lang, keyPath)
 	if err != nil {
-		fmt.Println("Error: ", err)
+		sendStatusUpdate("Error", fmt.Sprintf("Error: %s", err))
+		sendMsgToUI(stage1CompleteMsg{})
 		return
 	}
 
-	fmt.Println("Received intents: ", len(intents))
+	sendStatusUpdate("Info", fmt.Sprintf("Received intents: %d", len(intents)))
+	sendMsgToUI(flowProcessedMsg{})
 
 	var allVariables = ""
 	var allTasks = ""
@@ -51,7 +67,6 @@ func BuildDigitalBot(projectId, lang, flowName, keyPath string) {
 				entityNameReferences = ""
 				for _, trainingPhrase := range intent.TrainingPhrases {
 					var segment = "            - segments:\n"
-					fmt.Println("Training Phrase: ", trainingPhrase.Parts)
 					for _, part := range trainingPhrase.Parts {
 						// escape quotes if they are in the text
 						if strings.Contains(part.Text, "\"") {
@@ -92,12 +107,15 @@ func BuildDigitalBot(projectId, lang, flowName, keyPath string) {
 			}
 			createUtterances := createUtterances(allSegments, entityNameReferences, displayName)
 			allUtterances += fmt.Sprintf("\n%s", createUtterances)
-			fmt.Println("Completed Intent: ", displayName)
+			utils.TuiLogger("Info", fmt.Sprintf("(googleBotMigrate) Completed Intent: %s", displayName))
 		}
 	}
 
+	sendStatusUpdate("Info", fmt.Sprintf("Processed intents: %d", len(intents)))
+	sendMsgToUI(flowProcessedMsg{})
+
 	for _, slot := range allSlots {
-		fmt.Println("Slot created: ", slot)
+		utils.TuiLogger("Info", fmt.Sprintf("(googleBotMigrate) Slot created: %s", slot))
 	}
 
 	// Get all entities and blank out if none exist with []
@@ -122,17 +140,32 @@ func BuildDigitalBot(projectId, lang, flowName, keyPath string) {
 
 	createYaml := createYaml(flowName, allVariables, allTasks, allIntents, allUtterances, allEntities, allEntityTypes)
 	os.WriteFile(fmt.Sprintf("%s.yaml", flowName), []byte(createYaml), 0777)
-	fmt.Println("Flow created: ", flowName)
+	sendStatusUpdate("Info", fmt.Sprintf("Build COMPLETED. Create flow: %s", flowName))
+	sendMsgToUI(flowProcessedMsg{})
+	sendMsgToUI(stage1CompleteMsg{})
 }
 
-func BuildKnowledgeBaseCSV(projectId, lang, fileName, keyPath string) {
+func BuildKnowledgeBaseCSV(projectId, lang, fileName, keyPath string, p *tea.Program) {
+
+	// Helper to send status messages to the UI thread
+	sendMsgToUI := func(msg tea.Msg) {
+		if p != nil {
+			p.Send(msg)
+		}
+	}
+	sendStatusUpdate := func(t, s string) {
+		sendMsgToUI(internalUpdateStatusMsg{newStatus: s})
+		utils.TuiLogger(t, s) // logging output if enabled
+	}
+
 	intents, err := ListIntents(projectId, lang, keyPath)
 	if err != nil {
-		fmt.Println("Error: ", err)
+		sendStatusUpdate("Error", fmt.Sprintf("Error: %s", err))
+		sendMsgToUI(stage1CompleteMsg{})
 		return
 	}
 
-	fmt.Println("Received intents: ", len(intents))
+	utils.TuiLogger("Info", fmt.Sprintf("(googleBotMigrate) Received %d intents", len(intents)))
 
 	// CSV file format
 	// Published, my article, this is the body, training phrase 1, training phrase 2, ...,
@@ -168,7 +201,6 @@ func BuildKnowledgeBaseCSV(projectId, lang, fileName, keyPath string) {
 			if len(intent.TrainingPhrases) > 0 {
 
 				for _, trainingPhrase := range intent.TrainingPhrases {
-					fmt.Println("Training Phrase: ", trainingPhrase.Parts)
 					var phrase = ""
 					for _, part := range trainingPhrase.Parts {
 						// escape quotes if they are in the text
@@ -184,17 +216,17 @@ func BuildKnowledgeBaseCSV(projectId, lang, fileName, keyPath string) {
 				}
 
 			} else {
-				fmt.Println("No utterance")
+				utils.TuiLogger("Info", "(googleBotMigrate) No utterance")
 			}
 			allArticles = append(allArticles, row)
-			fmt.Println("Completed Intent: ", displayName)
+			utils.TuiLogger("Info", fmt.Sprintf("(googleBotMigrate) Completed Intent: %s", displayName))
 		}
 	}
 
-	fmt.Println("building csv")
+	utils.TuiLogger("Info", "(googleBotMigrate) Building csv")
 	//os.WriteFile(fmt.Sprintf("%s.csv", fileName), []byte(allArticles), 0777)
 	csvExport(allArticles, fileName)
-	fmt.Println("CSV File created: ", fileName)
+	utils.TuiLogger("Info", fmt.Sprintf("(googleBotMigrate) CSV File created: %s", fileName))
 }
 
 func csvExport(data [][]string, name string) error {
@@ -246,8 +278,7 @@ func ListIntents(projectID, lang, keyPath string) ([]*dialogflowpb.Intent, error
 
 	for intent, status := intentIterator.Next(); status != iterator.Done; {
 		if len(intents) > 1000 {
-			fmt.Println("Error: Does your api key have API admin access??")
-			os.Exit(1)
+			utils.TuiLogger("Fatal", "Error: Does your api key have API admin access??")
 		}
 		intents = append(intents, intent)
 		intent, status = intentIterator.Next()
