@@ -56,7 +56,7 @@ func buildBankingPwa(flagName, flagShortName, flagColor, flagIcon, flagBanner, f
 			_ = os.RemoveAll(flagShortName)
 			return
 		}
-		sendStatusUpdate("Info", fmt.Sprintf("Generated Svg: %s\n", svgs[i].Name()))
+		sendStatusUpdate("Info", fmt.Sprintf("Generated Svg: %s", svgs[i].Name()))
 	}
 	sendMsgToUI(flowProcessedMsg{})
 
@@ -205,16 +205,32 @@ func buildBankingPwa(flagName, flagShortName, flagColor, flagIcon, flagBanner, f
 	}
 
 	// ------------------ build script.js file ------------------
-	err = createFile("script.js", flagShortName, "_pwaTemplates/script.js")
+	script, err := pwaTemplates.ReadFile("_pwaTemplates/script.js")
 	if err != nil {
 		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) %s", err))
+		_ = os.RemoveAll(flagShortName)
+		return
+	}
+	formattedScript := strings.ReplaceAll(string(script), "LOGO", fileNameIcon)
+	err = os.WriteFile(fmt.Sprintf("%s/script.js", flagShortName), []byte(formattedScript), 0777)
+	if err != nil {
+		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) %s", err))
+		_ = os.RemoveAll(flagShortName)
 		return
 	}
 	sendStatusUpdate("Info", "Generating script.js file")
 	// ------------------ build genesys.js file ------------------
-	err = createFile("genesys.js", flagShortName, "_pwaTemplates/genesys.js")
+	genesys, err := pwaTemplates.ReadFile("_pwaTemplates/genesys.js")
 	if err != nil {
 		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) %s", err))
+		_ = os.RemoveAll(flagShortName)
+		return
+	}
+	formattedGenesys := strings.ReplaceAll(string(genesys), "LOGO", fileNameIcon)
+	err = os.WriteFile(fmt.Sprintf("%s/script.js", flagShortName), []byte(formattedGenesys), 0777)
+	if err != nil {
+		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) %s", err))
+		_ = os.RemoveAll(flagShortName)
 		return
 	}
 	sendStatusUpdate("Info", "Generating genesys.js file")

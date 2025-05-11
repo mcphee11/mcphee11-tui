@@ -68,7 +68,7 @@ document.addEventListener('click', (e) => {
     document.title = 'Logout'
     document.getElementById('account_img').className = 'icon_bottom'
     document.getElementById('doc_img').className = 'icon_bottom'
-    document.getElementById('anz_plus_img').className = 'icon_bottom'
+    document.getElementById('home_img').className = 'icon_bottom'
     document.getElementById('profile_img').className = 'icon_bottom'
     document.getElementById('main').innerHTML = ''
     localStorage.removeItem('userName')
@@ -82,7 +82,7 @@ document.addEventListener('click', (e) => {
     Genesys('command', 'Messenger.open')
     document.getElementById('account_img').className = 'icon_bottom'
     document.getElementById('doc_img').className = 'icon_bottom'
-    document.getElementById('anz_plus_img').className = 'icon_bottom'
+    document.getElementById('home_img').className = 'icon_bottom'
     document.getElementById('profile_img').className = 'icon_bottom'
   }
   //account clicked
@@ -90,7 +90,7 @@ document.addEventListener('click', (e) => {
     document.title = 'Accounts'
     document.getElementById('account_img').className = 'icon_bottom_blue'
     document.getElementById('doc_img').className = 'icon_bottom'
-    document.getElementById('anz_plus_img').className = 'icon_bottom'
+    document.getElementById('home_img').className = 'icon_bottom'
     document.getElementById('profile_img').className = 'icon_bottom'
     document.getElementById('main').innerHTML = ''
     buildAccounts()
@@ -100,16 +100,16 @@ document.addEventListener('click', (e) => {
     document.title = 'Transactions'
     document.getElementById('account_img').className = 'icon_bottom'
     document.getElementById('doc_img').className = 'icon_bottom_blue'
-    document.getElementById('anz_plus_img').className = 'icon_bottom'
+    document.getElementById('home_img').className = 'icon_bottom'
     document.getElementById('profile_img').className = 'icon_bottom'
     buildTransactions()
   }
   //anz plus clicked
-  if (e.target.id.startsWith('anz_plus_img')) {
+  if (e.target.id.startsWith('home_img')) {
     document.title = 'ANZ Plus'
     document.getElementById('account_img').className = 'icon_bottom'
     document.getElementById('doc_img').className = 'icon_bottom'
-    document.getElementById('anz_plus_img').className = 'icon_bottom_blue'
+    document.getElementById('home_img').className = 'icon_bottom_blue'
     document.getElementById('profile_img').className = 'icon_bottom'
     buildHome()
   }
@@ -129,7 +129,7 @@ document.addEventListener('click', (e) => {
     document.title = 'Profile'
     document.getElementById('account_img').className = 'icon_bottom'
     document.getElementById('doc_img').className = 'icon_bottom'
-    document.getElementById('anz_plus_img').className = 'icon_bottom'
+    document.getElementById('home_img').className = 'icon_bottom'
     document.getElementById('profile_img').className = 'icon_bottom_blue'
     document.getElementById('main').innerHTML = ''
     buildProfile()
@@ -139,7 +139,7 @@ document.addEventListener('click', (e) => {
     document.getElementById('modal_dispute').close()
     document.getElementById('account_img').className = 'icon_bottom'
     document.getElementById('doc_img').className = 'icon_bottom'
-    document.getElementById('anz_plus_img').className = 'icon_bottom'
+    document.getElementById('home_img').className = 'icon_bottom'
     document.getElementById('profile_img').className = 'icon_bottom'
   }
 
@@ -272,7 +272,7 @@ async function clickToCallAuth() {
 function buildHome() {
   let main = document.getElementById('main')
   let html = `<div style="width: 100%; display: flex">
-  <img id="safety_img" src="./svgs/safety.png" style="width: 200px; margin: auto;" />
+  <img id="safety_img" src="./LOGO" style="width: 200px; margin: auto;" />
   </div>`
   main.innerHTML = ''
   main.innerHTML = html
