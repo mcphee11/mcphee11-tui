@@ -81,14 +81,19 @@ Genesys('subscribe', 'MessagingService.messagesReceived', function (o) {
     }, 3000)
     return
   } //You will be directed to login a moment.
+  if (o.data.messages[0].text === 'dispute resolved') {
+    clearDispute()
+    let transaction = sessionStorage.getItem('transaction')
+    console.log('removing dispute: ', transaction)
+  }
   try {
     if (sessionStorage.getItem('gc_widget') === 'false' && o.data.messages[0].direction === 'Outbound') {
-      var notification = new Notification('New Message', { tag: 'genesys', body: o.data.messages[0].text, icon: './LOGO' })
+      var notification = new Notification('New Message', { tag: 'genesys', body: o.data.messages[0].text, icon: '.LOGO' })
       Genesys('command', 'Messenger.open')
       return
     }
     if (document.hasFocus() === false) {
-      var notification = new Notification('New Message', { tag: 'genesys', body: o.data.messages[0].text, icon: './LOGO' })
+      var notification = new Notification('New Message', { tag: 'genesys', body: o.data.messages[0].text, icon: '.LOGO' })
       Genesys('command', 'Messenger.open')
     }
   } catch (err) {

@@ -179,6 +179,7 @@ func buildBankingPwa(flagName, flagShortName, flagColor, flagIcon, flagBanner, f
 	}
 	formattedManifest := strings.ReplaceAll(string(manifest), "DEMO_NAME", flagName)
 	formattedManifest = strings.ReplaceAll(string(formattedManifest), "THEME_COLOR", flagColor)
+	formattedManifest = strings.ReplaceAll(string(formattedManifest), "BACKGROUND_COLOR", flagColor)
 	formattedManifest = strings.ReplaceAll(string(formattedManifest), "DEMO_SHORT_NAME", flagShortName)
 	err = os.WriteFile(fmt.Sprintf("%s/manifest.json", flagShortName), []byte(formattedManifest), 0777)
 	if err != nil {
@@ -212,6 +213,7 @@ func buildBankingPwa(flagName, flagShortName, flagColor, flagIcon, flagBanner, f
 		return
 	}
 	formattedScript := strings.ReplaceAll(string(script), "LOGO", fileNameIcon)
+	formattedScript = strings.ReplaceAll(string(formattedScript), "GC_DEPLOYMENT_ID", flagDeploymentId)
 	err = os.WriteFile(fmt.Sprintf("%s/script.js", flagShortName), []byte(formattedScript), 0777)
 	if err != nil {
 		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) %s", err))
@@ -227,7 +229,7 @@ func buildBankingPwa(flagName, flagShortName, flagColor, flagIcon, flagBanner, f
 		return
 	}
 	formattedGenesys := strings.ReplaceAll(string(genesys), "LOGO", fileNameIcon)
-	err = os.WriteFile(fmt.Sprintf("%s/script.js", flagShortName), []byte(formattedGenesys), 0777)
+	err = os.WriteFile(fmt.Sprintf("%s/genesys.js", flagShortName), []byte(formattedGenesys), 0777)
 	if err != nil {
 		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) %s", err))
 		_ = os.RemoveAll(flagShortName)
@@ -236,9 +238,17 @@ func buildBankingPwa(flagName, flagShortName, flagColor, flagIcon, flagBanner, f
 	sendStatusUpdate("Info", "Generating genesys.js file")
 	// ------------------ build service-worker.js file ------------------
 	utils.TuiLogger("Info", "(buildBankingPwa) Generating service-worker.js")
-	err = createFile("service-worker.js", flagShortName, "_pwaTemplates/service-worker.js")
+	serviceWorker, err := pwaTemplates.ReadFile("_pwaTemplates/service-worker.js")
 	if err != nil {
 		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) %s", err))
+		_ = os.RemoveAll(flagShortName)
+		return
+	}
+	formattedServiceWorker := strings.ReplaceAll(string(serviceWorker), "LOGO", fileNameIcon)
+	err = os.WriteFile(fmt.Sprintf("%s/service-worker.js", flagShortName), []byte(formattedServiceWorker), 0777)
+	if err != nil {
+		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) %s", err))
+		_ = os.RemoveAll(flagShortName)
 		return
 	}
 	sendStatusUpdate("Info", "Build COMPLETED")

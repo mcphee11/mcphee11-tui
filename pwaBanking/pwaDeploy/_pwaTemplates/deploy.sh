@@ -11,7 +11,7 @@ echo "
 Ensure you already have the Google Cloud cli installed and setup https://cloud.google.com/sdk/docs/install
 Ensure you have terser cli installed and setup https://github.com/terser/terser
 
-This is a automation building script to deploy the digital PWA from: https://github.com/mcphee11/goFunction-Cli
+This is a automation building script to deploy the banking PWA from: https://github.com/mcphee11/mcphee11-tui
 
 enter ctrl+c to exit.
 

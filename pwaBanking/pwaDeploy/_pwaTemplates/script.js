@@ -1,6 +1,6 @@
 'use strict' //Enables strict mode is JavaScript
 let userName = localStorage.getItem('userName')
-let transaction = null
+//let transaction = null
 
 // check for login user
 if (document.location.href.includes('index.html')) {
@@ -22,6 +22,8 @@ if (document.location.href.includes('home.html')) {
   buildHome()
 }
 
+// ----------------- NOTIFICATIONS CLIENT -------------------
+
 //Request Notification permission
 Notification.requestPermission().then(function (permission) {
   if (permission === 'granted') {
@@ -29,38 +31,128 @@ Notification.requestPermission().then(function (permission) {
   }
 })
 
-//Check browser support for SW
+async function subscribeUser() {
+  if ('serviceWorker' in navigator) {
+    try {
+      const registration = await navigator.serviceWorker.ready
+
+      // Check for existing subscription
+      const existingSubscription = await registration.pushManager.getSubscription()
+
+      if (existingSubscription) {
+        await existingSubscription.unsubscribe()
+        console.log('Existing subscription unsubscribed.')
+      }
+
+      const publicKeyResponse = await fetch('https://YOUR_PUSH_NOTIFICATION_SERVER', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Basic ${btoa('user:password')}`,
+        },
+        body: JSON.stringify({ type: 'vapidPublicKey' }),
+      })
+      const publicKey = await publicKeyResponse.text()
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: publicKey,
+      })
+
+      let body = {
+        type: 'subscribe',
+        subscription: subscription,
+      }
+
+      await fetch('https://YOUR_PUSH_NOTIFICATION_SERVER', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Basic ${btoa('user:password')}`,
+        },
+        body: JSON.stringify(body),
+      })
+
+      console.log('User subscribed')
+    } catch (error) {
+      console.error('Subscription error:', error)
+    }
+  }
+}
+
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker
-    .register('service-worker.js')
-    .then(function (registration) {
-      console.info('Service Worker Registered.')
-    })
-    .catch(function (err) {
-      console.error(err)
-    })
+  window.addEventListener('load', async () => {
+    try {
+      await navigator.serviceWorker.register('service-worker.js') // Adjust path
+      console.log('Service Worker registered')
+      //await subscribeUser() // uncomment if you want to use the Push notification server
+    } catch (error) {
+      console.error('Service Worker registration failed:', error)
+    }
+  })
 }
 
-if ('PushManager' in window) {
-  console.info('push supported')
-}
-
-function serviceWorkerMessage(message) {
-  console.log(message)
+function generateRandomChallenge() {
+  let length = 32
+  let randomValues = new Uint8Array(length)
+  window.crypto.getRandomValues(randomValues)
+  return randomValues
 }
 
 navigator.serviceWorker.addEventListener('message', async (event) => {
-  // Optional: ensure the message came from workbox-broadcast-update
-  if (event.data.meta === 'workbox-broadcast-update') {
-    console.log('update received', event)
-    if (event.data.payload.updatedURL === document.location.href) {
-      document.location.reload()
-    }
+  console.log('notification clicked!!!')
+  if (!navigator.credentials || !navigator.credentials.create || !navigator.credentials.get) {
+    return alert('Your browser does not support the Web Authentication API')
   }
-  if (event.data.badge) {
-    console.log(event.data)
-  }
+
+  let credentials = await navigator.credentials.create({
+    publicKey: {
+      challenge: generateRandomChallenge(),
+      rp: { name: 'Progressier', id: window.location.hostname },
+      //here you'll want to pass the user's info
+      user: { id: new Uint8Array(16), name: `${document.getElementById('name')}@genesys.com`, displayName: document.getElementById('name') },
+      pubKeyCredParams: [
+        { type: 'public-key', alg: -7 },
+        { type: 'public-key', alg: -257 },
+      ],
+      timeout: 60000,
+      authenticatorSelection: { residentKey: 'preferred', requireResidentKey: false, userVerification: 'preferred' },
+      attestation: 'none',
+      extensions: { credProps: true },
+    },
+  })
+  //in a real app, you'll store the credentials against the user's profile in your DB
+  //here we'll just save it in a global variable
+  window.currentPasskey = credentials
+  console.log(credentials)
 })
+
+async function sendPushNotification(message) {
+  try {
+    let body = {
+      type: 'send-push',
+      message: message,
+    }
+    const response = await fetch('YOUR_NOTIFICATION_SERVER', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Basic ${btoa('genesys:jeff')}`,
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (response.ok) {
+      console.log('Push notification sent successfully')
+    } else {
+      console.error('Failed to send push notification')
+    }
+  } catch (error) {
+    console.error('Error sending push notification:', error)
+  }
+}
+
+// ----------------- END NOTIFICATIONS -------------------
 
 document.addEventListener('click', (e) => {
   //logout clicked
@@ -103,10 +195,11 @@ document.addEventListener('click', (e) => {
     document.getElementById('home_img').className = 'icon_bottom'
     document.getElementById('profile_img').className = 'icon_bottom'
     buildTransactions()
+    setDisputes()
   }
-  //anz plus clicked
+  //home clicked
   if (e.target.id.startsWith('home_img')) {
-    document.title = 'ANZ Plus'
+    document.title = 'Home'
     document.getElementById('account_img').className = 'icon_bottom'
     document.getElementById('doc_img').className = 'icon_bottom'
     document.getElementById('home_img').className = 'icon_bottom_blue'
@@ -115,12 +208,13 @@ document.addEventListener('click', (e) => {
   }
   //delete clicked
   if (e.target.id.startsWith('delete')) {
-    //2d25a95b-be36-4ee6-b1f4-df3da96b1c41
-    localStorage.removeItem(`_2d25a95b-be36-4ee6-b1f4-df3da96b1c41:gcmcopn`)
-    localStorage.removeItem(`_2d25a95b-be36-4ee6-b1f4-df3da96b1c41:gcmcsessionActive`)
+    localStorage.removeItem(`_GC_DEPLOYMENT_ID:gcmcopn`)
+    localStorage.removeItem(`_GC_DEPLOYMENT_ID:gcmcsessionActive`)
     localStorage.removeItem('userName')
     localStorage.removeItem('userTelNumber')
     sessionStorage.removeItem('reason')
+    sessionStorage.removeItem('transaction')
+    localStorage.removeItem('disputes')
     Genesys('command', 'Identifiers.purgeAll', {})
     document.location.href = './index.html'
   }
@@ -158,43 +252,51 @@ document.addEventListener('click', (e) => {
     document.title = 'Dispute'
     let element = e.target.id.substring(17, e.target.id.length)
     document.getElementById(`drop_${element}`).style.display = 'none'
+
+    // Check for existing dispute on element for wait timer.
+    if (document.getElementById(`warning_${element}`).style.display == '') {
+      document.getElementById('wait').style.display = 'none'
+      document.getElementById('noWait').style.display = ''
+    }
+    if (document.getElementById(`warning_${element}`).style.display != '') {
+      document.getElementById('wait').style.display = ''
+      document.getElementById('noWait').style.display = 'none'
+    }
     document.getElementById('modal_dispute').showModal()
-    transaction = element
+    sessionStorage.setItem('transaction', element)
   }
 
   //modal phone button clicked
   if (e.target.id.startsWith('phone')) {
+    let transaction = sessionStorage.getItem('transaction')
     sessionStorage.setItem('reason', document.getElementById(transaction).children[1].children[1].innerText)
     document.getElementById('modal_dispute').close()
     console.log(transaction)
+    document.getElementById(`warning_${transaction}`).style.display = ''
+    updateDisputes(transaction)
     Genesys('command', 'Journey.record', { eventName: 'Message_Dispute', customAttributes: { Transaction: `${document.getElementById(transaction).children[1].children[1].innerText}` } })
     clickToCallAuth()
   }
 
   // modal chat button clicked
   if (e.target.id.startsWith('message')) {
+    Genesys('subscribe', 'MessagingService.ready', function () {
+      Genesys('command', 'MessagingService.sendMessage', {
+        message: `I'm enquiring about the transaction: ${document.getElementById(transaction).children[1].children[1].innerText}`,
+      })
+    })
+    let transaction = sessionStorage.getItem('transaction')
     sessionStorage.setItem('reason', document.getElementById(transaction).children[1].children[1].innerText)
     document.getElementById('modal_dispute').close()
     console.log(transaction)
+    document.getElementById(`warning_${transaction}`).style.display = ''
+    updateDisputes(transaction)
     Genesys('command', 'Journey.record', { eventName: 'Message_Dispute', customAttributes: { Transaction: `${document.getElementById(transaction).children[1].children[1].innerText}` } })
-    Genesys(
-      'command',
-      'Messenger.open',
-      {},
-      () => {
-        setTimeout(function (f) {
-          Genesys('command', 'MessagingService.sendMessage', {
-            message: `I'm enquiring about the transaction: ${document.getElementById(transaction).children[1].children[1].innerText}`,
-          })
-        }, 2000)
-      },
-      (error) => {
-        console.log("Couldn't open messenger.", error)
-      }
-    )
+    Genesys('command', 'Messenger.open')
   }
   // modal call button was clicked
   if (e.target.id.startsWith('phone')) {
+    let transaction = sessionStorage.getItem('transaction')
     document.getElementById('modal_dispute').close()
     Genesys('command', 'Journey.record', { eventName: 'Phone_Call', customAttributes: { Transaction: `${document.getElementById(transaction).children[1].children[1].innerText}` } })
   }
@@ -231,6 +333,18 @@ document.addEventListener('click', (e) => {
     pin.innerText = '_ _ _ _'
   }
 })
+
+function updateDisputes(card) {
+  let disputes = localStorage.getItem('disputes')
+  if (disputes) {
+    disputes = JSON.parse(disputes)
+    disputes.push(card)
+    localStorage.setItem('disputes', JSON.stringify(disputes))
+  }
+  if (!disputes) {
+    localStorage.setItem('disputes', JSON.stringify([card]))
+  }
+}
 
 //sends message to service worker returns promise
 async function sendMessage(message) {
@@ -301,7 +415,7 @@ function buildAccounts() {
 
     <div id="card2" class="account_row">
         <div id="left" class="account_left">
-        <img src="./svgs/card.jpg" style="width: 75px" />
+        <img src="./svgs/credit_card.png" style="width: 75px" />
       </div>
       <div id="center" class="account_middle">
         <h3 class="account_middle_text">Credit Card</h3>
@@ -340,10 +454,40 @@ function buildProfile() {
         <p>Logout session</p>
       </div>
       </div>
-      <p style="font-size: xx-small; margin-top: 20px">version 2.3</p>
+      <p style="font-size: xx-small; margin-top: 20px">version 4.2</p>
     </div>`
   main.innerHTML = ''
   main.innerHTML = html
+}
+
+function setDisputes() {
+  let disputes = localStorage.getItem('disputes')
+  disputes = JSON.parse(disputes)
+  if (disputes) {
+    for (const dispute of disputes) {
+      document.getElementById(`warning_${dispute}`).style.display = ''
+      console.log('dispute: ', dispute)
+    }
+  } else {
+    console.log('no current active disputes')
+  }
+}
+
+function clearDispute() {
+  let disputes = localStorage.getItem('disputes')
+  let transaction = sessionStorage.getItem('transaction')
+  disputes = JSON.parse(disputes)
+  if (disputes) {
+    let updated
+    for (const dispute of disputes) {
+      if (dispute === transaction) {
+        document.getElementById(`warning_${dispute}`).style.display = 'none'
+        console.log('dispute resolved: ', dispute)
+        updated = disputes.filter((a) => a !== dispute)
+      }
+    }
+    localStorage.setItem('disputes', updated)
+  }
 }
 
 function buildTransactions() {
@@ -351,13 +495,14 @@ function buildTransactions() {
   let html = `<div style="width: 100%">
   <div id="card1" class="account_row">
         <div id="left" class="account_left">
-        <img src="./svgs/card.jpg" style="width: 75px" />
+        <img src="./svgs/credit_card.png" style="width: 75px" />
       </div>
       <div id="center" class="account_middle">
         <h3 class="account_middle_text">Credit Card</h3>
         <p class="account_middle_text"><strong>-$103.95</strong> Woolworths</p>
       </div>
       <div id="right" class="account_right dropdown">
+      <img id="warning_card1" src="./svgs/warning.svg" style="display: none; width: 40px; filter: brightness(0) saturate(100%) invert(23%) sepia(100%) saturate(7433%) hue-rotate(359deg) brightness(102%) contrast(109%);" /> 
         <button id="button_card1" class="account_button">
         <img id="button_card1" src="./svgs/more_white.svg" style="width: 40px; filter: invert(36%) sepia(97%) saturate(3855%) hue-rotate(181deg) brightness(91%) contrast(95%);" />
         </button>
@@ -370,13 +515,14 @@ function buildTransactions() {
 
     <div id="card2" class="account_row">
         <div id="left" class="account_left">
-        <img src="./svgs/card.jpg" style="width: 75px" />
+        <img src="./svgs/credit_card.png" style="width: 75px" />
       </div>
       <div id="center" class="account_middle">
         <h3 class="account_middle_text">Credit Card</h3>
         <p class="account_middle_text"><strong>-$81.20</strong> Ebay</p>
       </div>
       <div id="right" class="account_right dropdown">
+      <img id="warning_card2" src="./svgs/warning.svg" style="display: none; width: 40px; filter: brightness(0) saturate(100%) invert(23%) sepia(100%) saturate(7433%) hue-rotate(359deg) brightness(102%) contrast(109%);" /> 
         <button id="button_card2" class="account_button">
         <img id="button_card2" src="./svgs/more_white.svg" style="width: 40px; filter: invert(36%) sepia(97%) saturate(3855%) hue-rotate(181deg) brightness(91%) contrast(95%);" />
         </button>
@@ -389,13 +535,14 @@ function buildTransactions() {
 
     <div id="card3" class="account_row">
         <div id="left" class="account_left">
-        <img src="./svgs/card.jpg" style="width: 75px" />
+        <img src="./svgs/credit_card.png" style="width: 75px" />
       </div>
       <div id="center" class="account_middle">
         <h3 class="account_middle_text">Credit Card</h3>
         <p class="account_middle_text"><strong>-$5.40</strong> Cafe Now</p>
       </div>
       <div id="right" class="account_right dropdown">
+      <img id="warning_card3" src="./svgs/warning.svg" style="display: none; width: 40px; filter: brightness(0) saturate(100%) invert(23%) sepia(100%) saturate(7433%) hue-rotate(359deg) brightness(102%) contrast(109%);" /> 
         <button id="button_card3" class="account_button">
         <img id="button_card3" src="./svgs/more_white.svg" style="width: 40px; filter: invert(36%) sepia(97%) saturate(3855%) hue-rotate(181deg) brightness(91%) contrast(95%);" />
         </button>
@@ -415,6 +562,7 @@ function buildTransactions() {
         <p class="account_middle_text"><strong>+$300.00</strong> Thanks for dinner</p>
       </div>
       <div id="right" class="account_right dropdown">
+      <img id="warning_card4" src="./svgs/warning.svg" style="display: none; width: 40px; filter: brightness(0) saturate(100%) invert(23%) sepia(100%) saturate(7433%) hue-rotate(359deg) brightness(102%) contrast(109%);" /> 
         <button id="button_card4" class="account_button">
         <img id="button_card4" src="./svgs/more_white.svg" style="width: 40px; filter: invert(36%) sepia(97%) saturate(3855%) hue-rotate(181deg) brightness(91%) contrast(95%);" />
         </button>
@@ -427,13 +575,14 @@ function buildTransactions() {
 
     <div id="card5" class="account_row">
         <div id="left" class="account_left">
-        <img src="./svgs/card.jpg" style="width: 75px" />
+        <img src="./svgs/credit_card.png" style="width: 75px" />
       </div>
       <div id="center" class="account_middle">
         <h3 class="account_middle_text">Credit Card</h3>
         <p class="account_middle_text"><strong>-$57.40</strong> JB-HiFi</p>
       </div>
       <div id="right" class="account_right dropdown">
+      <img id="warning_card5" src="./svgs/warning.svg" style="display: none; width: 40px; filter: brightness(0) saturate(100%) invert(23%) sepia(100%) saturate(7433%) hue-rotate(359deg) brightness(102%) contrast(109%);" /> 
         <button id="button_card5" class="account_button">
         <img id="button_card5" src="./svgs/more_white.svg" style="width: 40px; filter: invert(36%) sepia(97%) saturate(3855%) hue-rotate(181deg) brightness(91%) contrast(95%);" />
         </button>
@@ -453,25 +602,7 @@ function buildTransactions() {
         <p class="account_middle_text"><strong>+$1,100.00</strong> Transfer</p>
       </div>
       <div id="right" class="account_right dropdown">
-        <button id="button_card6" class="account_button">
-        <img id="button_card6" src="./svgs/more_white.svg" style="width: 40px; filter: invert(36%) sepia(97%) saturate(3855%) hue-rotate(181deg) brightness(91%) contrast(95%);" />
-        </button>
-          <div id="drop_card6" class="dropdown-content">
-          <a href="#Details">Details</a>
-          <a href="#Dispute" id="dropdown_dispute_card6">Dispute</a>
-      </div>
-      </div>
-  </div>
-
-    <div id="card6" class="account_row">
-        <div id="left" class="account_left">
-        <img src="./svgs/card.jpg" style="width: 75px" />
-      </div>
-      <div id="center" class="account_middle">
-        <h3 class="account_middle_text">Credit Card</h3>
-        <p class="account_middle_text"><strong>-$11.00</strong> Cafe Now</p>
-      </div>
-      <div id="right" class="account_right dropdown">
+      <img id="warning_card6" src="./svgs/warning.svg" style="display: none; width: 40px; filter: brightness(0) saturate(100%) invert(23%) sepia(100%) saturate(7433%) hue-rotate(359deg) brightness(102%) contrast(109%);" /> 
         <button id="button_card6" class="account_button">
         <img id="button_card6" src="./svgs/more_white.svg" style="width: 40px; filter: invert(36%) sepia(97%) saturate(3855%) hue-rotate(181deg) brightness(91%) contrast(95%);" />
         </button>
@@ -484,19 +615,40 @@ function buildTransactions() {
 
     <div id="card7" class="account_row">
         <div id="left" class="account_left">
-        <img src="./svgs/card.jpg" style="width: 75px" />
+        <img src="./svgs/credit_card.png" style="width: 75px" />
       </div>
       <div id="center" class="account_middle">
         <h3 class="account_middle_text">Credit Card</h3>
-        <p class="account_middle_text"><strong>-$230.00</strong> Woolworths</p>
+        <p class="account_middle_text"><strong>-$11.00</strong> Cafe Now</p>
       </div>
       <div id="right" class="account_right dropdown">
+      <img id="warning_card7" src="./svgs/warning.svg" style="display: none; width: 40px; filter: brightness(0) saturate(100%) invert(23%) sepia(100%) saturate(7433%) hue-rotate(359deg) brightness(102%) contrast(109%);" /> 
         <button id="button_card7" class="account_button">
         <img id="button_card7" src="./svgs/more_white.svg" style="width: 40px; filter: invert(36%) sepia(97%) saturate(3855%) hue-rotate(181deg) brightness(91%) contrast(95%);" />
         </button>
           <div id="drop_card7" class="dropdown-content">
           <a href="#Details">Details</a>
           <a href="#Dispute" id="dropdown_dispute_card7">Dispute</a>
+      </div>
+      </div>
+  </div>
+
+    <div id="card8" class="account_row">
+        <div id="left" class="account_left">
+        <img src="./svgs/credit_card.png" style="width: 75px" />
+      </div>
+      <div id="center" class="account_middle">
+        <h3 class="account_middle_text">Credit Card</h3>
+        <p class="account_middle_text"><strong>-$230.00</strong> Woolworths</p>
+      </div>
+      <div id="right" class="account_right dropdown">
+      <img id="warning_card8" src="./svgs/warning.svg" style="display: none; width: 40px; filter: brightness(0) saturate(100%) invert(23%) sepia(100%) saturate(7433%) hue-rotate(359deg) brightness(102%) contrast(109%);" /> 
+        <button id="button_card8" class="account_button">
+        <img id="button_card8" src="./svgs/more_white.svg" style="width: 40px; filter: invert(36%) sepia(97%) saturate(3855%) hue-rotate(181deg) brightness(91%) contrast(95%);" />
+        </button>
+          <div id="drop_card8" class="dropdown-content">
+          <a href="#Details">Details</a>
+          <a href="#Dispute" id="dropdown_dispute_card8">Dispute</a>
       </div>
       </div>
   </div>

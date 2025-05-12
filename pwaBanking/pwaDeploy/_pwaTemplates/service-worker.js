@@ -38,3 +38,29 @@ self.addEventListener('message', (event) => {
 workbox.precaching.precacheAndRoute([])
 self.skipWaiting()
 workbox.core.clientsClaim()
+
+// --------------------- PUSH NOTIFICATIONS ------------------
+
+self.addEventListener('push', (event) => {
+  const data = event.data.json()
+  const options = {
+    body: data.body,
+    icon: './LOGO', // Replace with your icon path
+    data: {
+      action: 'notification-click',
+    },
+  }
+  event.waitUntil(self.registration.showNotification(data.title, options))
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  clients.matchAll({ type: 'window' }).then((clientList) => {
+    clientList.forEach((client) => {
+      client.postMessage({
+        type: 'notification-clicked',
+        message: 'message',
+      })
+    })
+  })
+})
