@@ -210,6 +210,9 @@ func menuCurrentTTSVoices(voices []map[string]string, ttsType string) []list.Ite
 	for i := range voices {
 		list = append(list, item{typeSelected: ttsType, id: voices[i]["id"], title: voices[i]["title"], desc: voices[i]["desc"]})
 	}
+	if ttsType == "ttsSet" {
+		list = append(list, item{typeSelected: ttsType, id: "Default", title: "Default", desc: "Default voice thats configured"})
+	}
 	return list
 }
 
