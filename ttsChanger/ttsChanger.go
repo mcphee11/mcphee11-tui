@@ -66,7 +66,7 @@ func GetFlows(config *platformclientv2.Configuration, searchId string) []map[str
 	for i := range dependencies {
 		flowIds = append(flowIds, dependencies[i]["id"])
 	}
-	latestPublished, err := getFlowsCUSTOM(config, flowIds)
+	latestPublished, err := GetFlowsCUSTOM(config, flowIds)
 
 	if err != nil {
 		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) %s", err))
@@ -128,7 +128,7 @@ func getTTSVoicesEnhancedPages(apiInstance *platformclientv2.IntegrationsApi, pa
 	}
 }
 
-func getFlowsCUSTOM(config *platformclientv2.Configuration, flows []string) (flowReturned []map[string]string, err error) {
+func GetFlowsCUSTOM(config *platformclientv2.Configuration, flows []string) (flowReturned []map[string]string, err error) {
 	var allFlows []map[string]string
 
 	flowPage, err := getFlowsPageCUSTOM(config, flows, 1)
@@ -150,6 +150,10 @@ func getFlowsCUSTOM(config *platformclientv2.Configuration, flows []string) (flo
 	}
 
 	for _, entity := range *flowPage.Entities {
+		if entity.PublishedVersion == nil || entity.PublishedVersion.Id == nil {
+			utils.TuiLogger("Warning", fmt.Sprintf("(ttsChanger) Skipping entity with missing PublishedVersion or Id: %s", *entity.Id))
+			continue
+		}
 		allFlows = append(allFlows, map[string]string{
 			"title":   *entity.Name,
 			"id":      *entity.Id,
@@ -157,7 +161,6 @@ func getFlowsCUSTOM(config *platformclientv2.Configuration, flows []string) (flo
 			"version": *entity.PublishedVersion.Id,
 		})
 	}
-
 	return allFlows, nil
 }
 

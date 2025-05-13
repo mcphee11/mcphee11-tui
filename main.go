@@ -95,8 +95,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "botMigrate":
 				m.list.Title = "Migrating Google Bots"
 				return m, tea.Quit
+			case "flowBackupSelect":
+				m.list.Title = "Select the flow you want to backup"
+				justFlows, err := ttsChanger.GetFlowsCUSTOM(genesysLoginConfig, []string{})
+				if err != nil {
+					utils.TuiLogger("Error", fmt.Sprintf("%s", err))
+				}
+				ttsData.flows = justFlows
+				m.list.SetItems(menuCurrentFlows(justFlows, "flowBackup"))
 			case "flowBackup":
-				fmt.Println("Backing up flows")
+				m.list.Title = "Backing up..."
+				return m, tea.Quit
 			case "searchReleases":
 				m.list.StartSpinner()
 				search := searchReleaseNotes.SearchReleaseNotes(" ")
@@ -178,6 +187,8 @@ func main() {
 		googleBotMigrate.MainInputs()
 	case "flowUpdate":
 		flows.FlowsLoadingMainBackup(returnedModel.(model).lastSelectedItem.id, ttsData.flows, ttsData.ttsGet, ttsData.ttsSet, true)
+	case "flowBackup":
+		flows.FlowsLoadingMainBackup(returnedModel.(model).lastSelectedItem.id, ttsData.flows, "", "", false)
 	}
 }
 
@@ -187,7 +198,7 @@ func menuMain() []list.Item {
 		item{typeSelected: "pwaBanking", title: "Build Banking PWA", desc: "Building a PWA mobile app for demos based on banking"},
 		item{typeSelected: "ttsChanger", title: "Update to Genesys Enhanced TTS", desc: "Update the TTS engine used in your Genesys Voice BOTs"},
 		item{typeSelected: "botMigrate", title: "Google Bot Migration", desc: "Easily migrate Google Bots (ES & CX) to Digital Bots or Knowledge Base for Copilot"},
-		item{typeSelected: "flowBackup", title: "Backup Flows", desc: "Take a backup of your Genesys Flows"},
+		item{typeSelected: "flowBackupSelect", title: "Backup Flows", desc: "Take a backup of your Genesys Flows"},
 		item{typeSelected: "help", title: "Help Menu", desc: "Open the help menu"},
 		item{typeSelected: "version", title: "Version", desc: "Display installed version"},
 	}
@@ -213,6 +224,7 @@ func menuCurrentTTSVoices(voices []map[string]string, ttsType string) []list.Ite
 	if ttsType == "ttsSet" {
 		list = append(list, item{typeSelected: ttsType, id: "Default", title: "Default", desc: "Default voice thats configured"})
 	}
+	list = append(list, item{typeSelected: "backMain", id: "backMain", title: "Back", desc: "Back to the main menu"})
 	return list
 }
 
