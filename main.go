@@ -20,6 +20,8 @@ import (
 
 var Debug bool
 var docStyle = lipgloss.NewStyle().Margin(1, 2)
+var bannerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFDF5")).Background(lipgloss.Color("#655ad5")).Padding(0, 1)
+var bannerWarningStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#000000")).Background(lipgloss.Color("#f7d720")).Padding(0, 1)
 
 type item struct {
 	title, desc, typeSelected, id string
@@ -47,6 +49,7 @@ type ttsSelection struct {
 
 var ttsData ttsSelection
 var genesysLoginConfig *platformclientv2.Configuration
+var orgName string
 
 func (m model) Init() tea.Cmd {
 	return nil
@@ -61,14 +64,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "enter" {
 			selected := m.list.SelectedItem().(item)
 			m.lastSelectedItem = selected
-
+			m.list.Styles.Title = bannerStyle
 			switch selected.typeSelected {
 			// TTS
 			case "ttsChanger":
-				m.list.Title = "Select the Voice you want to replace"
-				voices := ttsChanger.CurrentTTSVoices(genesysLoginConfig)
-				m.list.SetItems(menuCurrentTTSVoices(voices, "ttsGet"))
-				m.list.Cursor()
+				if orgName == "not provided" {
+					m.list.Title = "WARNING: you need to connect to an ORG first"
+					m.list.Styles.Title = bannerWarningStyle
+				} else {
+					m.list.Title = "Select the Voice you want to replace"
+					voices := ttsChanger.CurrentTTSVoices(genesysLoginConfig)
+					m.list.SetItems(menuCurrentTTSVoices(voices, "ttsGet"))
+					m.list.Cursor()
+				}
 			case "ttsGet":
 				ttsData.ttsGet = selected.Title()
 				ttsData.ttsAPIGet = selected.id
@@ -93,16 +101,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.list.Title = "Building Banking PWA"
 				return m, tea.Quit
 			case "botMigrate":
-				m.list.Title = "Migrating Google Bots"
-				return m, tea.Quit
-			case "flowBackupSelect":
-				m.list.Title = "Select the flow you want to backup"
-				justFlows, err := ttsChanger.GetFlowsCUSTOM(genesysLoginConfig, []string{})
-				if err != nil {
-					utils.TuiLogger("Error", fmt.Sprintf("%s", err))
+				if orgName == "not provided" {
+					m.list.Title = "WARNING: you need to connect to an ORG first"
+					m.list.Styles.Title = bannerWarningStyle
+				} else {
+					m.list.Title = "Migrating Google Bots"
+					return m, tea.Quit
 				}
-				ttsData.flows = justFlows
-				m.list.SetItems(menuCurrentFlows(justFlows, "flowBackup"))
+			case "flowBackupSelect":
+				if orgName == "not provided" {
+					m.list.Title = "WARNING: you need to connect to an ORG first"
+					m.list.Styles.Title = bannerWarningStyle
+				} else {
+					m.list.Title = "Select the flow you want to backup"
+					justFlows, err := ttsChanger.GetFlowsCUSTOM(genesysLoginConfig, []string{})
+					if err != nil {
+						utils.TuiLogger("Error", fmt.Sprintf("%s", err))
+					}
+					ttsData.flows = justFlows
+					m.list.SetItems(menuCurrentFlows(justFlows, "flowBackup"))
+				}
 			case "flowBackup":
 				m.list.Title = "Backing up..."
 				return m, tea.Quit
@@ -114,7 +132,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.list.Cursor()
 				// Back to main menu
 			case "backMain":
-				m.list.Title = "McPhee11 TUI for making life easier"
+				m.list.Title = "McPhee11 TUI - Genesys Cloud ORG: " + orgName
 				m.list.SetItems(menuMain())
 				m.list.Cursor()
 			case "help":
@@ -152,12 +170,12 @@ func main() {
 	if err != nil {
 		panic("Failed to initialize logger: " + err.Error())
 	}
-	var org = "unknown"
+
 	// Check for genesys cloud environment
 	utils.TuiLogger("Info", "(main) Checking for Genesys Cloud environment variables...")
 	config, err := genesysLogin.GenesysLogin()
 	if err != nil {
-		org = "not provided"
+		orgName = "not provided"
 		utils.TuiLogger("Info", "(main) ORG not provided")
 	} else {
 		genesysLoginConfig = config
@@ -166,12 +184,12 @@ func main() {
 		if err != nil {
 			utils.TuiLogger("Error", fmt.Sprintf("(main) Failed calling GetOrganizationsMe: %s", err))
 		} else {
-			org = *data.Name
+			orgName = *data.Name
 		}
 	}
 
 	m := model{list: list.New(menuMain(), list.NewDefaultDelegate(), 0, 0)}
-	m.list.Title = "McPhee11 TUI - Genesys Cloud ORG: " + org
+	m.list.Title = "McPhee11 TUI - Genesys Cloud ORG: " + orgName
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
