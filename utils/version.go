@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"runtime/debug"
 	"time"
 )
@@ -49,4 +51,34 @@ func GetVersion() string {
 
 	// Default fallback
 	return "dev"
+}
+
+func CheckForNewerVersion(currentVersion string) (bool, string, error) {
+	const repoURL = "https://api.github.com/repos/mcphee11/mcphee11-tui/releases/latest"
+
+	// Make HTTP request to GitHub API
+	resp, err := http.Get(repoURL)
+	if err != nil {
+		return false, "", fmt.Errorf("failed to fetch latest release: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return false, "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	// Parse JSON response
+	var release struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return false, "", fmt.Errorf("failed to parse release data: %w", err)
+	}
+
+	// Compare versions
+	if release.TagName > currentVersion {
+		return true, release.TagName, nil
+	}
+
+	return false, "", nil
 }
