@@ -30,7 +30,9 @@ func TuiLoggerStart() error {
 func TuiLogger(level, message string) {
 	debug := os.Getenv("MCPHEE11_TUI_DEBUG")
 	if debug != "true" {
-		fmt.Printf("%s: %s\n", level, message)
+		if level == "Fatal" || level == "Error" {
+			fmt.Printf("%s: %s\n", level, message)
+		}
 		return
 	}
 	if level == "Fatal" {

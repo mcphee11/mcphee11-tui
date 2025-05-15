@@ -140,7 +140,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.list.SetItems(menuHelp())
 				m.list.Cursor()
 			case "version":
-				m.list.Title = utils.GetVersion()
+				currentVersion := utils.GetVersion()
+				laterVersion, newerVersion, err := utils.CheckForNewerVersion(currentVersion)
+				if err != nil {
+					utils.TuiLogger("Info", fmt.Sprintf("Unable to check for new version: %s", err))
+				} else {
+					if laterVersion {
+						m.list.Title = fmt.Sprintf("%s - There is a newer version: %s run \"go install github.com/mcphee11/mcphee11-tui@latest\" to update", currentVersion, newerVersion)
+					} else {
+						m.list.Title = currentVersion
+					}
+				}
 			case "link":
 				err := openURL(selected.id)
 				if err != nil {
