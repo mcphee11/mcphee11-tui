@@ -24,21 +24,21 @@ func CheckForArchy() (err error) {
 	return nil
 }
 
-func CurrentTTSVoices(config *platformclientv2.Configuration) []map[string]string {
+func CurrentTTSVoices(config *platformclientv2.Configuration, engine string) []map[string]string {
 
 	var voices []map[string]string
 
 	apiIntegrationsInstance := platformclientv2.NewIntegrationsApiWithConfig(config)
-	ttsVoices, err := getTTSVoicesEnhancedPages(apiIntegrationsInstance, 1)
+	ttsVoices, err := getTTSVoicesEnhancedPages(apiIntegrationsInstance, 1, engine)
 
 	if err != nil {
-		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) Error getting architect flows: %v", err))
+		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) Error getting tts voices: %v", err))
 		os.Exit(1)
 	}
 
 	pageNumber := 2
 	for pageNumber <= *ttsVoices.PageCount {
-		nextPage, err := getTTSVoicesEnhancedPages(apiIntegrationsInstance, pageNumber)
+		nextPage, err := getTTSVoicesEnhancedPages(apiIntegrationsInstance, pageNumber, engine)
 		if err != nil {
 			utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) %s", err))
 			os.Exit(1)
@@ -56,6 +56,40 @@ func CurrentTTSVoices(config *platformclientv2.Configuration) []map[string]strin
 	}
 
 	return voices
+}
+
+func CurrentTTSEngines(config *platformclientv2.Configuration) []map[string]string {
+
+	var engines []map[string]string
+
+	apiIntegrationsInstance := platformclientv2.NewIntegrationsApiWithConfig(config)
+	ttsEngines, err := getTTSEnginesPages(apiIntegrationsInstance, 1)
+
+	if err != nil {
+		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) Error getting tts engines: %v", err))
+		os.Exit(1)
+	}
+
+	pageNumber := 2
+	for pageNumber <= *ttsEngines.PageCount {
+		nextPage, err := getTTSEnginesPages(apiIntegrationsInstance, pageNumber)
+		if err != nil {
+			utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) %s", err))
+			os.Exit(1)
+		}
+		*ttsEngines.Entities = append(*ttsEngines.Entities, *nextPage.Entities...)
+		pageNumber++
+	}
+
+	for _, entity := range *ttsEngines.Entities {
+		engines = append(engines, map[string]string{
+			"title": *entity.Name,
+			"id":    *entity.Id,
+			"desc":  fmt.Sprintf("This TTS Engine supports %d languages", len(*entity.Languages)),
+		})
+	}
+
+	return engines
 }
 
 func GetFlows(config *platformclientv2.Configuration, searchId string) []map[string]string {
@@ -115,8 +149,22 @@ func getDependencyTracking(config *platformclientv2.Configuration, searchId stri
 	return flows
 }
 
-func getTTSVoicesEnhancedPages(apiInstance *platformclientv2.IntegrationsApi, page int) (ttsVoices *platformclientv2.Ttsvoiceentitylisting, err error) {
-	engineId := "genesys_enhanced" // The engine ID
+func getTTSEnginesPages(apiInstance *platformclientv2.IntegrationsApi, page int) (ttsEngines *platformclientv2.Ttsengineentitylisting, err error) {
+	pageSize := 100        // Page size
+	includeVoices := false // Include voices for the engine
+	name := ""             // Filter on engine name
+	language := ""         // Filter on supported language. If includeVoices=true then the voices are also filtered.
+	// Get a list of TTS engines enabled for org
+	data, _, err := apiInstance.GetIntegrationsSpeechTtsEngines(page, pageSize, includeVoices, name, language)
+	if err != nil {
+		return nil, fmt.Errorf("Error calling GetIntegrationsSpeechTtsEngines: %v\n", err)
+	} else {
+		return data, nil
+	}
+}
+
+func getTTSVoicesEnhancedPages(apiInstance *platformclientv2.IntegrationsApi, page int, engine string) (ttsVoices *platformclientv2.Ttsvoiceentitylisting, err error) {
+	engineId := engine // The engine ID
 	//var pageNumber int // Page number
 	pageSize := 500 // Page size
 	// Get a list of voices for a TTS engine
