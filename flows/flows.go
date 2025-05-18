@@ -76,7 +76,7 @@ func GetFlowsCUSTOM(config *platformclientv2.Configuration, flows []string) (flo
 	flowPage, err := getFlowsPageCUSTOM(config, flows, 1)
 
 	if err != nil {
-		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) %s", err))
+		utils.TuiLogger("Error", fmt.Sprintf("%s", err))
 		return nil, err
 	}
 
@@ -84,7 +84,7 @@ func GetFlowsCUSTOM(config *platformclientv2.Configuration, flows []string) (flo
 	for pageNumber <= *flowPage.PageCount {
 		nextPage, err := getFlowsPageCUSTOM(config, flows, pageNumber)
 		if err != nil {
-			utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) %s", err))
+			utils.TuiLogger("Error", fmt.Sprintf("%s", err))
 			os.Exit(1)
 		}
 		*flowPage.Entities = append(*flowPage.Entities, *nextPage.Entities...)
@@ -93,14 +93,15 @@ func GetFlowsCUSTOM(config *platformclientv2.Configuration, flows []string) (flo
 
 	for _, entity := range *flowPage.Entities {
 		if entity.PublishedVersion == nil || entity.PublishedVersion.Id == nil {
-			utils.TuiLogger("Warning", fmt.Sprintf("(ttsChanger) Skipping entity with missing PublishedVersion or Id: %s", *entity.Id))
+			utils.TuiLogger("Warning", fmt.Sprintf("Skipping entity with missing PublishedVersion or Id: %s", *entity.Id))
 			continue
 		}
 		allFlows = append(allFlows, map[string]string{
-			"title":   *entity.Name,
-			"id":      *entity.Id,
-			"desc":    *entity.PublishedVersion.Id,
-			"version": *entity.PublishedVersion.Id,
+			"title":    *entity.Name,
+			"id":       *entity.Id,
+			"desc":     *entity.PublishedVersion.Id,
+			"version":  *entity.PublishedVersion.Id,
+			"flowType": *entity.VarType,
 		})
 	}
 	return allFlows, nil
@@ -117,7 +118,7 @@ func getFlowsPageCUSTOM(config *platformclientv2.Configuration, flows []string, 
 	// Create a new GET request
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) request creation: %s", err))
+		utils.TuiLogger("Error", fmt.Sprintf("request creation: %s", err))
 		return nil, err
 	}
 
@@ -127,23 +128,23 @@ func getFlowsPageCUSTOM(config *platformclientv2.Configuration, flows []string, 
 	// Send the request
 	resp, err := client.Do(req)
 	if err != nil {
-		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) request sending: %s", err))
+		utils.TuiLogger("Error", fmt.Sprintf("request sending: %s", err))
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// Check the response status code
 	if resp.StatusCode != http.StatusOK {
-		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) Request failed with status code: %d", resp.StatusCode))
+		utils.TuiLogger("Error", fmt.Sprintf("Request failed with status code: %d", resp.StatusCode))
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		utils.TuiLogger("Info", fmt.Sprintf("(ttsChanger) Response body: %s", string(bodyBytes)))
+		utils.TuiLogger("Info", fmt.Sprintf("Response body: %s", string(bodyBytes)))
 		return nil, err
 	}
 
 	// Read the response body
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) Reading body: %s", err))
+		utils.TuiLogger("Error", fmt.Sprintf("Reading body: %s", err))
 		return nil, err
 	}
 
@@ -151,7 +152,7 @@ func getFlowsPageCUSTOM(config *platformclientv2.Configuration, flows []string, 
 	var flowResponse FlowentitylistingCUSTOM
 	err = json.Unmarshal(bodyBytes, &flowResponse)
 	if err != nil {
-		utils.TuiLogger("Error", fmt.Sprintf("(ttsChanger) Unmarshalling JSON: %s", err))
+		utils.TuiLogger("Error", fmt.Sprintf("Unmarshalling JSON: %s", err))
 		return nil, err
 	}
 

@@ -24,6 +24,7 @@ var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Render
 var (
 	status           string
 	updateRequested  bool
+	updateType       string
 	flowCount        int
 	flowId           string
 	savedFlows       []map[string]string
@@ -53,7 +54,7 @@ type model struct {
 	processedCount int
 }
 
-func FlowsLoadingMainBackup(flowId string, flows []map[string]string, ttsGet, ttsSet, ttsEngineGet, ttsEngineSet string, updateRequired bool) {
+func FlowsLoadingMainBackup(flowId string, flows []map[string]string, ttsGet, ttsSet, ttsEngineGet, ttsEngineSet, update string, updateRequired bool) {
 	flowCount = len(flows)
 	savedFlowId = flowId
 	savedFlows = flows
@@ -62,6 +63,7 @@ func FlowsLoadingMainBackup(flowId string, flows []map[string]string, ttsGet, tt
 	ttsSettingEngine = ttsEngineSet
 	ttsGettingEngine = ttsEngineGet
 	updateRequested = updateRequired
+	updateType = update
 	if updateRequired {
 		if flowId == "ALL" {
 			status = fmt.Sprintf("Ready. Press 's' to start backup of %d flows. Once completed you will be able to update them", flowCount)
@@ -132,7 +134,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmd := func() tea.Msg {
 					// Pass necessary data to the backup process
 					// The GlobalProgram allows the goroutine to send messages back
-					go RunUpdateProcess(flowCount, GlobalProgram)
+					go RunUpdateProcess(flowCount, GlobalProgram, updateType)
 					return nil // The goroutine will send messages asynchronously
 				}
 				// Now start the Update

@@ -7,7 +7,8 @@ A TUI to consolidate many of the different CLI capabilities I have built up in i
 - Beautiful TUI built with [Charm Bubbletea](https://github.com/charmbracelet/bubbletea)
 - Search the [Genesys Cloud Release Notes](https://help.mypurecloud.com/release-notes-home/monthly-archive/)
 - Build Banking PWA
-- Update to Genesys Enhanced TTS
+- Update TTS
+- Common Modules
 - Google Bot Migration
 - Backup Flows
 
@@ -15,7 +16,7 @@ A TUI to consolidate many of the different CLI capabilities I have built up in i
 
 ### Prerequisites
 
-- Go 1.18 or higher
+- Go 1.24.2 or higher
 
 ### Install
 

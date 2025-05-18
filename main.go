@@ -70,7 +70,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.lastSelectedItem = selected
 			m.list.Styles.Title = bannerStyle
 			switch selected.typeSelected {
-			// TTS
+			// TTS section
 			case "ttsEngineGet":
 				if orgName == "not provided" {
 					m.list.Title = "WARNING: you need to connect to an ORG first"
@@ -117,7 +117,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "flowUpdate":
 				m.list.Title = "Updating..."
 				return m, tea.Quit
-			// PWA
+			// PWA section
 			case "pwaBanking":
 				m.list.Title = "Building Banking PWA"
 				return m, tea.Quit
@@ -129,6 +129,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.list.Title = "Migrating Google Bots"
 					return m, tea.Quit
 				}
+			// flow backup section
 			case "flowBackupSelect":
 				if orgName == "not provided" {
 					m.list.Title = "WARNING: you need to connect to an ORG first"
@@ -145,6 +146,36 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "flowBackup":
 				m.list.Title = "Backing up..."
 				return m, tea.Quit
+			// common module section
+			case "commonModule":
+				if orgName == "not provided" {
+					m.list.Title = "WARNING: you need to connect to an ORG first"
+					m.list.Styles.Title = bannerWarningStyle
+				} else {
+					var commonModules []map[string]string
+					m.list.Title = "Select Common Module flow that you have updated"
+					justFlows, err := flows.GetFlowsCUSTOM(genesysLoginConfig, []string{})
+					if err != nil {
+						utils.TuiLogger("Error", fmt.Sprintf("%s", err))
+					}
+					for _, flow := range justFlows {
+						if flow["flowType"] == "COMMONMODULE" {
+							commonModules = append(commonModules, flow)
+						}
+					}
+					ttsData.flows = commonModules
+					m.list.SetItems(menuCurrentFlows(commonModules, "commonDependency"))
+				}
+			case "commonDependency":
+				ttsData.ttsSet = selected.title
+				m.list.Title = "Select from one or ALL of the flows that depend on " + selected.title
+				dependencies := flows.GetFlows(genesysLoginConfig, "commonModuleFlow", selected.id)
+				ttsData.flows = dependencies
+				m.list.SetItems(menuCurrentFlows(dependencies, "commonRefresh"))
+			case "commonRefresh":
+				m.list.Title = "RePublishing Common Modules"
+				return m, tea.Quit
+			// search release notes section
 			case "searchReleases":
 				m.list.StartSpinner()
 				search := searchReleaseNotes.SearchReleaseNotes(" ")
@@ -235,9 +266,11 @@ func main() {
 	case "botMigrate":
 		googleBotMigrate.MainInputs()
 	case "flowUpdate":
-		flows.FlowsLoadingMainBackup(returnedModel.(model).lastSelectedItem.id, ttsData.flows, ttsData.ttsGet, ttsData.ttsSet, ttsData.ttsEngineGetName, ttsData.ttsEngineSetName, true)
+		flows.FlowsLoadingMainBackup(returnedModel.(model).lastSelectedItem.id, ttsData.flows, ttsData.ttsGet, ttsData.ttsSet, ttsData.ttsEngineGetName, ttsData.ttsEngineSetName, "tts", true)
 	case "flowBackup":
-		flows.FlowsLoadingMainBackup(returnedModel.(model).lastSelectedItem.id, ttsData.flows, "", "", "", "", false)
+		flows.FlowsLoadingMainBackup(returnedModel.(model).lastSelectedItem.id, ttsData.flows, "", "", "", "", "tts", false)
+	case "commonRefresh":
+		flows.FlowsLoadingMainBackup(returnedModel.(model).lastSelectedItem.id, ttsData.flows, "", ttsData.ttsSet, "", "", "rePublish", true)
 	}
 }
 
@@ -246,6 +279,7 @@ func menuMain() []list.Item {
 		item{typeSelected: "searchReleases", title: "Search Release Notes", desc: "Search the Genesys Cloud Release Notes"},
 		item{typeSelected: "pwaBanking", title: "Build Banking PWA", desc: "Building a PWA mobile app for demos based on banking"},
 		item{typeSelected: "ttsEngineGet", title: "Update TTS", desc: "Update the TTS engine used in your Flows"},
+		item{typeSelected: "commonModule", title: "Common Modules", desc: "Update the flows that have a specifc common module set"},
 		item{typeSelected: "botMigrate", title: "Google Bot Migration", desc: "Easily migrate Google Bots (ES & CX) to Digital Bots or Knowledge Base for Copilot"},
 		item{typeSelected: "flowBackupSelect", title: "Backup Flows", desc: "Take a backup of your Genesys Flows"},
 		item{typeSelected: "help", title: "Help Menu", desc: "Open the help menu"},
