@@ -22,17 +22,19 @@ var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Render
 
 // Global variables
 var (
-	status          string
-	updateRequested bool
-	flowCount       int
-	flowId          string
-	savedFlows      []map[string]string
-	savedFlowId     string
-	GlobalProgram   *tea.Program // To send messages from goroutines
-	ttsSetting      string
-	ttsGetting      string
-	folderBackup    string
-	folderUpdate    string
+	status           string
+	updateRequested  bool
+	flowCount        int
+	flowId           string
+	savedFlows       []map[string]string
+	savedFlowId      string
+	GlobalProgram    *tea.Program // To send messages from goroutines
+	ttsSetting       string
+	ttsGetting       string
+	ttsSettingEngine string
+	ttsGettingEngine string
+	folderBackup     string
+	folderUpdate     string
 )
 
 // --- New Message Types ---
@@ -51,12 +53,14 @@ type model struct {
 	processedCount int
 }
 
-func FlowsLoadingMainBackup(flowId string, flows []map[string]string, ttsGet, ttsSet string, updateRequired bool) {
+func FlowsLoadingMainBackup(flowId string, flows []map[string]string, ttsGet, ttsSet, ttsEngineGet, ttsEngineSet string, updateRequired bool) {
 	flowCount = len(flows)
 	savedFlowId = flowId
 	savedFlows = flows
 	ttsSetting = ttsSet
 	ttsGetting = ttsGet
+	ttsSettingEngine = ttsEngineSet
+	ttsGettingEngine = ttsEngineGet
 	updateRequested = updateRequired
 	if updateRequired {
 		if flowId == "ALL" {

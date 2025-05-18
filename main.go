@@ -39,14 +39,16 @@ type model struct {
 }
 
 type ttsSelection struct {
-	ttsEngineGet  string
-	ttsEngineSet  string
-	ttsGet        string
-	ttsAPIGet     string
-	ttsSet        string
-	flows         []map[string]string
-	downloadedDir string
-	updatedDir    string
+	ttsEngineGet     string
+	ttsEngineGetName string
+	ttsEngineSet     string
+	ttsEngineSetName string
+	ttsGet           string
+	ttsAPIGet        string
+	ttsSet           string
+	flows            []map[string]string
+	downloadedDir    string
+	updatedDir       string
 }
 
 var ttsData ttsSelection
@@ -82,6 +84,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case "ttsSelectVoiceGet":
 				ttsData.ttsEngineGet = selected.id
+				ttsData.ttsEngineGetName = selected.title
 				m.list.Title = "Select the Voice you want to replace"
 				voicesGet := ttsChanger.CurrentTTSVoices(genesysLoginConfig, ttsData.ttsEngineGet)
 				m.list.SetItems(menuCurrentTTSVoices(voicesGet, "ttsEngineSet"))
@@ -97,6 +100,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.list.Cursor()
 			case "ttsSelectVoiceSet":
 				ttsData.ttsEngineSet = selected.id
+				ttsData.ttsEngineSetName = selected.title
 				m.list.Title = "Select the Voice you want to SET"
 				voicesSet := ttsChanger.CurrentTTSVoices(genesysLoginConfig, ttsData.ttsEngineSet)
 				m.list.SetItems(menuCurrentTTSVoices(voicesSet, "ttsSet"))
@@ -105,7 +109,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "ttsSet":
 				ttsData.ttsSet = selected.Title()
 				m.list.Title = "These flows include " + ttsData.ttsGet + ". Update one or ALL"
-				flows := ttsChanger.GetFlows(genesysLoginConfig, ttsData.ttsEngineSet+"/"+ttsData.ttsAPIGet)
+				flows := flows.GetFlows(genesysLoginConfig, "TTSVOICE", ttsData.ttsEngineGet+"/"+ttsData.ttsAPIGet)
 				ttsData.flows = flows
 				m.list.SetItems(menuCurrentFlows(flows, "flowUpdate"))
 				m.list.ResetFilter()
@@ -131,7 +135,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.list.Styles.Title = bannerWarningStyle
 				} else {
 					m.list.Title = "Select the flow you want to backup"
-					justFlows, err := ttsChanger.GetFlowsCUSTOM(genesysLoginConfig, []string{})
+					justFlows, err := flows.GetFlowsCUSTOM(genesysLoginConfig, []string{})
 					if err != nil {
 						utils.TuiLogger("Error", fmt.Sprintf("%s", err))
 					}
@@ -231,9 +235,9 @@ func main() {
 	case "botMigrate":
 		googleBotMigrate.MainInputs()
 	case "flowUpdate":
-		flows.FlowsLoadingMainBackup(returnedModel.(model).lastSelectedItem.id, ttsData.flows, ttsData.ttsGet, ttsData.ttsSet, true)
+		flows.FlowsLoadingMainBackup(returnedModel.(model).lastSelectedItem.id, ttsData.flows, ttsData.ttsGet, ttsData.ttsSet, ttsData.ttsEngineGetName, ttsData.ttsEngineSetName, true)
 	case "flowBackup":
-		flows.FlowsLoadingMainBackup(returnedModel.(model).lastSelectedItem.id, ttsData.flows, "", "", false)
+		flows.FlowsLoadingMainBackup(returnedModel.(model).lastSelectedItem.id, ttsData.flows, "", "", "", "", false)
 	}
 }
 

@@ -88,12 +88,14 @@ func RunUpdateProcess(totalFlows int, p *tea.Program) {
 		var updatedContent string
 		utils.TuiLogger("Info", fmt.Sprintf("ttsSetting == %s", ttsSetting))
 		if ttsSetting == "Default" {
-			updatedContent = strings.ReplaceAll(string(content), fmt.Sprintf("Genesys Enhanced TTS:"), "defaultEngine:")
+			updatedContent = strings.ReplaceAll(string(content), fmt.Sprintf("%s:", ttsGettingEngine), "defaultEngine:")
 			updatedContent = strings.ReplaceAll(string(updatedContent), fmt.Sprintf("voice: %s", ttsGetting), "defaultVoice: true")
 		} else {
 			// check for existing
-			updatedContent = strings.ReplaceAll(string(content), fmt.Sprintf("voice: %s", ttsGetting), fmt.Sprintf("voice: %s", ttsSetting))
+			updatedContent = strings.ReplaceAll(string(content), fmt.Sprintf("%s:", ttsGettingEngine), fmt.Sprintf("%s:", ttsSettingEngine))
+			updatedContent = strings.ReplaceAll(string(updatedContent), fmt.Sprintf("voice: %s", ttsGetting), fmt.Sprintf("voice: %s", ttsSetting))
 			// check if default
+			updatedContent = strings.ReplaceAll(string(updatedContent), "defaultEngine:", fmt.Sprintf("%s:", ttsSettingEngine))
 			updatedContent = strings.ReplaceAll(string(updatedContent), "defaultVoice: true", fmt.Sprintf("voice: %s", ttsSetting))
 		}
 
