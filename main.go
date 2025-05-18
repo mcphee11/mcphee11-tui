@@ -39,12 +39,16 @@ type model struct {
 }
 
 type ttsSelection struct {
-	ttsGet        string
-	ttsAPIGet     string
-	ttsSet        string
-	flows         []map[string]string
-	downloadedDir string
-	updatedDir    string
+	ttsEngineGet     string
+	ttsEngineGetName string
+	ttsEngineSet     string
+	ttsEngineSetName string
+	ttsGet           string
+	ttsAPIGet        string
+	ttsSet           string
+	flows            []map[string]string
+	downloadedDir    string
+	updatedDir       string
 }
 
 var ttsData ttsSelection
@@ -66,29 +70,46 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.lastSelectedItem = selected
 			m.list.Styles.Title = bannerStyle
 			switch selected.typeSelected {
-			// TTS
-			case "ttsChanger":
+			// TTS section
+			case "ttsEngineGet":
 				if orgName == "not provided" {
 					m.list.Title = "WARNING: you need to connect to an ORG first"
 					m.list.Styles.Title = bannerWarningStyle
 				} else {
-					m.list.Title = "Select the Voice you want to replace"
-					voices := ttsChanger.CurrentTTSVoices(genesysLoginConfig)
-					m.list.SetItems(menuCurrentTTSVoices(voices, "ttsGet"))
+					m.list.Title = "Select the TTS Engine you want to replace"
+					enginesGet := ttsChanger.CurrentTTSEngines(genesysLoginConfig)
+					m.list.SetItems(menuCurrentTTSVoices(enginesGet, "ttsSelectVoiceGet"))
+					m.list.ResetFilter()
 					m.list.Cursor()
 				}
-			case "ttsGet":
+			case "ttsSelectVoiceGet":
+				ttsData.ttsEngineGet = selected.id
+				ttsData.ttsEngineGetName = selected.title
+				m.list.Title = "Select the Voice you want to replace"
+				voicesGet := ttsChanger.CurrentTTSVoices(genesysLoginConfig, ttsData.ttsEngineGet)
+				m.list.SetItems(menuCurrentTTSVoices(voicesGet, "ttsEngineSet"))
+				m.list.ResetFilter()
+				m.list.Cursor()
+			case "ttsEngineSet":
 				ttsData.ttsGet = selected.Title()
 				ttsData.ttsAPIGet = selected.id
+				m.list.Title = "Select the TTS Engine you want to SET"
+				enginesSet := ttsChanger.CurrentTTSEngines(genesysLoginConfig)
+				m.list.SetItems(menuCurrentTTSVoices(enginesSet, "ttsSelectVoiceSet"))
+				m.list.ResetFilter()
+				m.list.Cursor()
+			case "ttsSelectVoiceSet":
+				ttsData.ttsEngineSet = selected.id
+				ttsData.ttsEngineSetName = selected.title
 				m.list.Title = "Select the Voice you want to SET"
-				voices := ttsChanger.CurrentTTSVoices(genesysLoginConfig)
-				m.list.SetItems(menuCurrentTTSVoices(voices, "ttsSet"))
+				voicesSet := ttsChanger.CurrentTTSVoices(genesysLoginConfig, ttsData.ttsEngineSet)
+				m.list.SetItems(menuCurrentTTSVoices(voicesSet, "ttsSet"))
 				m.list.ResetFilter()
 				m.list.Cursor()
 			case "ttsSet":
 				ttsData.ttsSet = selected.Title()
 				m.list.Title = "These flows include " + ttsData.ttsGet + ". Update one or ALL"
-				flows := ttsChanger.GetFlows(genesysLoginConfig, "genesys_enhanced/"+ttsData.ttsAPIGet)
+				flows := flows.GetFlows(genesysLoginConfig, "TTSVOICE", ttsData.ttsEngineGet+"/"+ttsData.ttsAPIGet)
 				ttsData.flows = flows
 				m.list.SetItems(menuCurrentFlows(flows, "flowUpdate"))
 				m.list.ResetFilter()
@@ -96,7 +117,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "flowUpdate":
 				m.list.Title = "Updating..."
 				return m, tea.Quit
-			// PWA
+			// PWA section
 			case "pwaBanking":
 				m.list.Title = "Building Banking PWA"
 				return m, tea.Quit
@@ -108,13 +129,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.list.Title = "Migrating Google Bots"
 					return m, tea.Quit
 				}
+			// flow backup section
 			case "flowBackupSelect":
 				if orgName == "not provided" {
 					m.list.Title = "WARNING: you need to connect to an ORG first"
 					m.list.Styles.Title = bannerWarningStyle
 				} else {
 					m.list.Title = "Select the flow you want to backup"
-					justFlows, err := ttsChanger.GetFlowsCUSTOM(genesysLoginConfig, []string{})
+					justFlows, err := flows.GetFlowsCUSTOM(genesysLoginConfig, []string{})
 					if err != nil {
 						utils.TuiLogger("Error", fmt.Sprintf("%s", err))
 					}
@@ -124,6 +146,36 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "flowBackup":
 				m.list.Title = "Backing up..."
 				return m, tea.Quit
+			// common module section
+			case "commonModule":
+				if orgName == "not provided" {
+					m.list.Title = "WARNING: you need to connect to an ORG first"
+					m.list.Styles.Title = bannerWarningStyle
+				} else {
+					var commonModules []map[string]string
+					m.list.Title = "Select Common Module flow that you have updated"
+					justFlows, err := flows.GetFlowsCUSTOM(genesysLoginConfig, []string{})
+					if err != nil {
+						utils.TuiLogger("Error", fmt.Sprintf("%s", err))
+					}
+					for _, flow := range justFlows {
+						if flow["flowType"] == "COMMONMODULE" {
+							commonModules = append(commonModules, flow)
+						}
+					}
+					ttsData.flows = commonModules
+					m.list.SetItems(menuCurrentFlows(commonModules, "commonDependency"))
+				}
+			case "commonDependency":
+				ttsData.ttsSet = selected.title
+				m.list.Title = "Select from one or ALL of the flows that depend on " + selected.title
+				dependencies := flows.GetFlows(genesysLoginConfig, "commonModuleFlow", selected.id)
+				ttsData.flows = dependencies
+				m.list.SetItems(menuCurrentFlows(dependencies, "commonRefresh"))
+			case "commonRefresh":
+				m.list.Title = "RePublishing Common Modules"
+				return m, tea.Quit
+			// search release notes section
 			case "searchReleases":
 				m.list.StartSpinner()
 				search := searchReleaseNotes.SearchReleaseNotes(" ")
@@ -214,9 +266,11 @@ func main() {
 	case "botMigrate":
 		googleBotMigrate.MainInputs()
 	case "flowUpdate":
-		flows.FlowsLoadingMainBackup(returnedModel.(model).lastSelectedItem.id, ttsData.flows, ttsData.ttsGet, ttsData.ttsSet, true)
+		flows.FlowsLoadingMainBackup(returnedModel.(model).lastSelectedItem.id, ttsData.flows, ttsData.ttsGet, ttsData.ttsSet, ttsData.ttsEngineGetName, ttsData.ttsEngineSetName, "tts", true)
 	case "flowBackup":
-		flows.FlowsLoadingMainBackup(returnedModel.(model).lastSelectedItem.id, ttsData.flows, "", "", false)
+		flows.FlowsLoadingMainBackup(returnedModel.(model).lastSelectedItem.id, ttsData.flows, "", "", "", "", "tts", false)
+	case "commonRefresh":
+		flows.FlowsLoadingMainBackup(returnedModel.(model).lastSelectedItem.id, ttsData.flows, "", ttsData.ttsSet, "", "", "rePublish", true)
 	}
 }
 
@@ -224,7 +278,8 @@ func menuMain() []list.Item {
 	return []list.Item{
 		item{typeSelected: "searchReleases", title: "Search Release Notes", desc: "Search the Genesys Cloud Release Notes"},
 		item{typeSelected: "pwaBanking", title: "Build Banking PWA", desc: "Building a PWA mobile app for demos based on banking"},
-		item{typeSelected: "ttsChanger", title: "Update to Genesys Enhanced TTS", desc: "Update the TTS engine used in your Genesys Voice BOTs"},
+		item{typeSelected: "ttsEngineGet", title: "Update TTS", desc: "Update the TTS engine used in your Flows"},
+		item{typeSelected: "commonModule", title: "Common Modules", desc: "Update the flows that have a specifc common module set"},
 		item{typeSelected: "botMigrate", title: "Google Bot Migration", desc: "Easily migrate Google Bots (ES & CX) to Digital Bots or Knowledge Base for Copilot"},
 		item{typeSelected: "flowBackupSelect", title: "Backup Flows", desc: "Take a backup of your Genesys Flows"},
 		item{typeSelected: "help", title: "Help Menu", desc: "Open the help menu"},

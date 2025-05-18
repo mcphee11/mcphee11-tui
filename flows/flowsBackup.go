@@ -85,8 +85,11 @@ func RunBackupProcess(flowId string, flows []map[string]string, totalFlows int, 
 	}
 
 	finalStatus := "Backup COMPLETED."
-	if updateRequested {
+	if updateRequested && updateType == "tts" {
 		finalStatus = fmt.Sprintf("Backup COMPLETED... Press u to start the upgrade of these flows to TTS Voice: %s", ttsSetting)
+	}
+	if updateRequested && updateType == "rePublish" {
+		finalStatus = fmt.Sprintf("Backup COMPLETED... Press u to start the upgrade of these flows that relate to common module: %s", ttsSetting)
 	}
 	// TODO make error logging better
 	if strings.Contains(status, "ERROR:") {

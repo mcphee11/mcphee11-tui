@@ -14,7 +14,7 @@ import (
 
 // This function runs in a goroutine and performs the update.
 // It sends messages back to the Tea program via the 'p' instance.
-func RunUpdateProcess(totalFlows int, p *tea.Program) {
+func RunUpdateProcess(totalFlows int, p *tea.Program, updateType string) {
 	// Helper to send status messages to the UI thread
 	sendMsgToUI := func(msg tea.Msg) {
 		if p != nil {
@@ -86,15 +86,23 @@ func RunUpdateProcess(totalFlows int, p *tea.Program) {
 		}
 
 		var updatedContent string
-		utils.TuiLogger("Info", fmt.Sprintf("ttsSetting == %s", ttsSetting))
-		if ttsSetting == "Default" {
-			updatedContent = strings.ReplaceAll(string(content), fmt.Sprintf("Genesys Enhanced TTS:"), "defaultEngine:")
-			updatedContent = strings.ReplaceAll(string(updatedContent), fmt.Sprintf("voice: %s", ttsGetting), "defaultVoice: true")
-		} else {
-			// check for existing
-			updatedContent = strings.ReplaceAll(string(content), fmt.Sprintf("voice: %s", ttsGetting), fmt.Sprintf("voice: %s", ttsSetting))
-			// check if default
-			updatedContent = strings.ReplaceAll(string(updatedContent), "defaultVoice: true", fmt.Sprintf("voice: %s", ttsSetting))
+		if updateType == "tts" {
+			utils.TuiLogger("Info", fmt.Sprintf("ttsSetting == %s", ttsSetting))
+			if ttsSetting == "Default" {
+				updatedContent = strings.ReplaceAll(string(content), fmt.Sprintf("%s:", ttsGettingEngine), "defaultEngine:")
+				updatedContent = strings.ReplaceAll(string(updatedContent), fmt.Sprintf("voice: %s", ttsGetting), "defaultVoice: true")
+			} else {
+				// check for existing
+				updatedContent = strings.ReplaceAll(string(content), fmt.Sprintf("%s:", ttsGettingEngine), fmt.Sprintf("%s:", ttsSettingEngine))
+				updatedContent = strings.ReplaceAll(string(updatedContent), fmt.Sprintf("voice: %s", ttsGetting), fmt.Sprintf("voice: %s", ttsSetting))
+				// check if default
+				updatedContent = strings.ReplaceAll(string(updatedContent), "defaultEngine:", fmt.Sprintf("%s:", ttsSettingEngine))
+				updatedContent = strings.ReplaceAll(string(updatedContent), "defaultVoice: true", fmt.Sprintf("voice: %s", ttsSetting))
+			}
+		}
+		if updateType == "rePublish" {
+			// no changes to yaml files just rePublishing them
+			updatedContent = string(content)
 		}
 
 		err = os.WriteFile(newFilePath, []byte(updatedContent), 0644)
