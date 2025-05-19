@@ -19,13 +19,48 @@ func GetFlows(config *platformclientv2.Configuration, objType, searchId string) 
 	dependencies := getDependencyTracking(config, objType, searchId)
 
 	for i := range dependencies {
-		flowIds = append(flowIds, dependencies[i]["id"])
+		// Check if dependencies[i]["id"] already exists in previous dependencies
+		duplicate := false
+		for j := 0; j < i; j++ {
+			if dependencies[j]["id"] == dependencies[i]["id"] {
+				duplicate = true
+				break
+			}
+		}
+		if !duplicate {
+			flowIds = append(flowIds, dependencies[i]["id"])
+		}
 	}
-	latestPublished, err := GetFlowsCUSTOM(config, flowIds)
 
-	if err != nil {
-		utils.TuiLogger("Error", fmt.Sprintf("%s", err))
-		return nil
+	// check for flowIds length to stop Error 413 for to much data
+	var latestPublished []map[string]string
+	if len(flowIds) > 100 {
+		utils.TuiLogger("Info", fmt.Sprintf("%s", flowIds))
+		chunkSize := 100
+		for i := 0; i < len(flowIds); i += chunkSize {
+			end := i + chunkSize
+			if end > len(flowIds) {
+				end = len(flowIds)
+			}
+			chunk := flowIds[i:end]
+			utils.TuiLogger("Info", fmt.Sprintf("Processing chunk of %d flowIds (from index %d to %d)", len(chunk), i, end-1))
+			chunkResponse, err := GetFlowsCUSTOM(config, chunk)
+			if err != nil {
+				utils.TuiLogger("Error", fmt.Sprintf("Error processing chunk of flowIds: %s", err))
+				if latestPublished == nil {
+					return nil
+				}
+				return latestPublished
+			}
+			latestPublished = append(latestPublished, chunkResponse...)
+		}
+	} else {
+		latestPublishedResponse, err := GetFlowsCUSTOM(config, flowIds)
+		if err != nil {
+			utils.TuiLogger("Error", fmt.Sprintf("%s", err))
+			return nil
+		}
+		latestPublished = latestPublishedResponse
 	}
 
 	for _, ver := range latestPublished {
