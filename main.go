@@ -6,6 +6,7 @@ import (
 	"runtime"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mcphee11/mcphee11-tui/flows"
@@ -21,6 +22,7 @@ import (
 var Debug bool
 var docStyle = lipgloss.NewStyle().Margin(1, 2)
 var bannerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFDF5")).Background(lipgloss.Color("#655ad5")).Padding(0, 1)
+var bannerStyleLoading = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFDF5")).Background(lipgloss.Color("#655ad5")).Padding(0, 1).Render
 var bannerWarningStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#000000")).Background(lipgloss.Color("#f7d720")).Padding(0, 1)
 
 type item struct {
@@ -36,6 +38,8 @@ func (i item) FilterValue() string  { return i.title }
 type model struct {
 	list             list.Model
 	lastSelectedItem item
+	spinner          spinner.Model
+	spinning         bool
 }
 
 type ttsSelection struct {
@@ -51,21 +55,77 @@ type ttsSelection struct {
 	updatedDir       string
 }
 
+// --- Message Types for Async Operations ---
+type searchResultsMsg struct {
+	results []map[string]string
+	err     error
+}
+type ttsEnginesMsg struct {
+	engines []map[string]string
+	err     error
+}
+type ttsVoicesMsg struct {
+	voices []map[string]string
+	err    error
+}
+type flowsResultMsg struct { // Renamed to avoid conflict with flows package
+	flowsData []map[string]string
+	err       error
+}
+
+// --- Cmds for Async Operations ---
+func fetchSearchResultsCmd(query string) tea.Cmd {
+	return func() tea.Msg {
+		results := searchReleaseNotes.SearchReleaseNotes(query)
+		return searchResultsMsg{results: results, err: nil}
+	}
+}
+func fetchTTSEnginesCmd(config *platformclientv2.Configuration) tea.Cmd {
+	return func() tea.Msg {
+		engines := ttsChanger.CurrentTTSEngines(config)
+		return ttsEnginesMsg{engines: engines, err: nil}
+	}
+}
+func fetchTTSVoicesCmd(config *platformclientv2.Configuration, engineID string) tea.Cmd {
+	return func() tea.Msg {
+		voices := ttsChanger.CurrentTTSVoices(config, engineID)
+		return ttsVoicesMsg{voices: voices, err: nil}
+	}
+}
+func fetchFlowsCmd(config *platformclientv2.Configuration, searchType string, searchValue string) tea.Cmd {
+	return func() tea.Msg {
+		flowsResult := flows.GetFlows(config, searchType, searchValue)
+		return flowsResultMsg{flowsData: flowsResult, err: nil}
+	}
+}
+
+func fetchFlowsCUSTOMCmd(config *platformclientv2.Configuration, flowTypes []string) tea.Cmd {
+	return func() tea.Msg {
+		flowsResult, err := flows.GetFlowsCUSTOM(config, flowTypes)
+		return flowsResultMsg{flowsData: flowsResult, err: err}
+	}
+}
+
 var ttsData ttsSelection
 var genesysLoginConfig *platformclientv2.Configuration
 var orgName string
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return m.spinner.Tick
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
 		if msg.String() == "enter" {
+			if m.list.FilterState() == list.Filtering || m.list.FilterState() == list.FilterApplied {
+				// Let the list handle the filter input first
+				//break
+			}
 			selected := m.list.SelectedItem().(item)
 			m.lastSelectedItem = selected
 			m.list.Styles.Title = bannerStyle
@@ -76,44 +136,33 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.list.Title = "WARNING: you need to connect to an ORG first"
 					m.list.Styles.Title = bannerWarningStyle
 				} else {
-					m.list.Title = "Select the TTS Engine you want to replace"
-					enginesGet := ttsChanger.CurrentTTSEngines(genesysLoginConfig)
-					m.list.SetItems(menuCurrentTTSVoices(enginesGet, "ttsSelectVoiceGet"))
-					m.list.ResetFilter()
-					m.list.Cursor()
+					m.spinning = true
+					m.list.Title = "Loading TTS Engines..."
+					cmds = append(cmds, m.spinner.Tick, fetchTTSEnginesCmd(genesysLoginConfig))
 				}
 			case "ttsSelectVoiceGet":
 				ttsData.ttsEngineGet = selected.id
 				ttsData.ttsEngineGetName = selected.title
-				m.list.Title = "Select the Voice you want to replace"
-				voicesGet := ttsChanger.CurrentTTSVoices(genesysLoginConfig, ttsData.ttsEngineGet)
-				m.list.SetItems(menuCurrentTTSVoices(voicesGet, "ttsEngineSet"))
-				m.list.ResetFilter()
-				m.list.Cursor()
+				m.spinning = true
+				m.list.Title = "Loading TTS Voices..."
+				cmds = append(cmds, m.spinner.Tick, fetchTTSVoicesCmd(genesysLoginConfig, ttsData.ttsEngineGet))
 			case "ttsEngineSet":
 				ttsData.ttsGet = selected.Title()
 				ttsData.ttsAPIGet = selected.id
-				m.list.Title = "Select the TTS Engine you want to SET"
-				enginesSet := ttsChanger.CurrentTTSEngines(genesysLoginConfig)
-				m.list.SetItems(menuCurrentTTSVoices(enginesSet, "ttsSelectVoiceSet"))
-				m.list.ResetFilter()
-				m.list.Cursor()
+				m.spinning = true
+				m.list.Title = "Loading TTS Engines for Set..."
+				cmds = append(cmds, m.spinner.Tick, fetchTTSEnginesCmd(genesysLoginConfig))
 			case "ttsSelectVoiceSet":
 				ttsData.ttsEngineSet = selected.id
 				ttsData.ttsEngineSetName = selected.title
-				m.list.Title = "Select the Voice you want to SET"
-				voicesSet := ttsChanger.CurrentTTSVoices(genesysLoginConfig, ttsData.ttsEngineSet)
-				m.list.SetItems(menuCurrentTTSVoices(voicesSet, "ttsSet"))
-				m.list.ResetFilter()
-				m.list.Cursor()
+				m.spinning = true
+				m.list.Title = "Loading TTS Voices for Set..."
+				cmds = append(cmds, m.spinner.Tick, fetchTTSVoicesCmd(genesysLoginConfig, ttsData.ttsEngineSet))
 			case "ttsSet":
 				ttsData.ttsSet = selected.Title()
-				m.list.Title = "These flows include " + ttsData.ttsGet + ". Update one or ALL"
-				flows := flows.GetFlows(genesysLoginConfig, "TTSVOICE", ttsData.ttsEngineGet+"/"+ttsData.ttsAPIGet)
-				ttsData.flows = flows
-				m.list.SetItems(menuCurrentFlows(flows, "flowUpdate"))
-				m.list.ResetFilter()
-				m.list.Cursor()
+				m.spinning = true
+				m.list.Title = "Loading flows with " + ttsData.ttsGet + "..."
+				cmds = append(cmds, m.spinner.Tick, fetchFlowsCmd(genesysLoginConfig, "TTSVOICE", ttsData.ttsEngineGet+"/"+ttsData.ttsAPIGet))
 			case "flowUpdate":
 				m.list.Title = "Updating..."
 				return m, tea.Quit
@@ -135,13 +184,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.list.Title = "WARNING: you need to connect to an ORG first"
 					m.list.Styles.Title = bannerWarningStyle
 				} else {
-					m.list.Title = "Select the flow you want to backup"
-					justFlows, err := flows.GetFlowsCUSTOM(genesysLoginConfig, []string{})
-					if err != nil {
-						utils.TuiLogger("Error", fmt.Sprintf("%s", err))
-					}
-					ttsData.flows = justFlows
-					m.list.SetItems(menuCurrentFlows(justFlows, "flowBackup"))
+					m.spinning = true
+					m.list.Title = "Loading flows for backup..."
+					cmds = append(cmds, m.spinner.Tick, fetchFlowsCUSTOMCmd(genesysLoginConfig, []string{}))
 				}
 			case "flowBackup":
 				m.list.Title = "Backing up..."
@@ -152,55 +197,42 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.list.Title = "WARNING: you need to connect to an ORG first"
 					m.list.Styles.Title = bannerWarningStyle
 				} else {
-					var commonModules []map[string]string
-					m.list.Title = "Select Common Module flow that you have updated"
-					justFlows, err := flows.GetFlowsCUSTOM(genesysLoginConfig, []string{})
-					if err != nil {
-						utils.TuiLogger("Error", fmt.Sprintf("%s", err))
-					}
-					for _, flow := range justFlows {
-						if flow["flowType"] == "COMMONMODULE" {
-							commonModules = append(commonModules, flow)
-						}
-					}
-					ttsData.flows = commonModules
-					m.list.SetItems(menuCurrentFlows(commonModules, "commonDependency"))
+					m.spinning = true
+					m.list.Title = "Loading Common Modules..."
+					cmds = append(cmds, m.spinner.Tick, fetchFlowsCUSTOMCmd(genesysLoginConfig, []string{}))
 				}
 			case "commonDependency":
 				ttsData.ttsSet = selected.title
-				m.list.Title = "Select from one or ALL of the flows that depend on " + selected.title
-				dependencies := flows.GetFlows(genesysLoginConfig, "commonModuleFlow", selected.id)
-				ttsData.flows = dependencies
-				m.list.SetItems(menuCurrentFlows(dependencies, "commonRefresh"))
+				m.spinning = true
+				m.list.Title = "Loading dependencies for " + selected.title + "..."
+				cmds = append(cmds, m.spinner.Tick, fetchFlowsCmd(genesysLoginConfig, "commonModuleFlow", selected.id))
 			case "commonRefresh":
 				m.list.Title = "RePublishing Common Modules"
 				return m, tea.Quit
 			// search release notes section
 			case "searchReleases":
-				m.list.StartSpinner()
-				search := searchReleaseNotes.SearchReleaseNotes(" ")
-				m.list.Title = "Release notes"
-				m.list.SetItems(menuSearchReleaseNotes(search))
-				m.list.Cursor()
-				// Back to main menu
+				m.spinning = true
+				m.list.Title = "Searching Release Notes..."
+				cmds = append(cmds, m.spinner.Tick, fetchSearchResultsCmd(" "))
 			case "backMain":
 				m.list.Title = "McPhee11 TUI - Genesys Cloud ORG: " + orgName
 				m.list.SetItems(menuMain())
-				m.list.Cursor()
+				m.list.ResetFilter()
 			case "help":
 				m.list.Title = "Help Menu"
 				m.list.SetItems(menuHelp())
-				m.list.Cursor()
+				m.list.ResetFilter()
 			case "version":
 				currentVersion := utils.GetVersion()
 				laterVersion, newerVersion, err := utils.CheckForNewerVersion(currentVersion)
 				if err != nil {
 					utils.TuiLogger("Info", fmt.Sprintf("Unable to check for new version: %s", err))
+					m.list.Title = currentVersion + " (update check failed)"
 				} else {
 					if laterVersion {
-						m.list.Title = fmt.Sprintf("%s - There is a newer version: %s run \"go install github.com/mcphee11/mcphee11-tui@latest\" to update", currentVersion, newerVersion)
+						m.list.Title = fmt.Sprintf("%s - Newer version: %s. Update with: go install github.com/mcphee11/mcphee11-tui@latest", currentVersion, newerVersion)
 					} else {
-						m.list.Title = currentVersion
+						m.list.Title = currentVersion + " (up to date)"
 					}
 				}
 			case "link":
@@ -215,19 +247,109 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
 		m.list.SetSize(msg.Width-h, msg.Height-v)
+
+		// --- Handle Async Operation Results ---
+	case searchResultsMsg:
+		m.spinning = false
+		if msg.err != nil {
+			utils.TuiLogger("Error", fmt.Sprintf("Search Error: %v", msg.err))
+			m.list.Title = "Error searching release notes!"
+		} else {
+			m.list.Title = "Release notes"
+			m.list.SetItems(menuSearchReleaseNotes(msg.results))
+			m.list.ResetFilter()
+		}
+
+	case ttsEnginesMsg:
+		m.spinning = false
+		if msg.err != nil {
+			utils.TuiLogger("Error", fmt.Sprintf("TTS Engines Load Error: %v", msg.err))
+			m.list.Title = "Error Loading TTS Engines!"
+		} else {
+			switch m.lastSelectedItem.typeSelected {
+			case "ttsEngineGet":
+				m.list.Title = "Select the TTS Engine you want to replace"
+				m.list.SetItems(menuCurrentTTSVoices(msg.engines, "ttsSelectVoiceGet"))
+			case "ttsEngineSet":
+				m.list.Title = "Select the TTS Engine you want to SET"
+				m.list.SetItems(menuCurrentTTSVoices(msg.engines, "ttsSelectVoiceSet"))
+			}
+			m.list.ResetFilter()
+		}
+
+	case ttsVoicesMsg:
+		m.spinning = false
+		if msg.err != nil {
+			utils.TuiLogger("Error", fmt.Sprintf("TTS Voices Load Error: %v", msg.err))
+			m.list.Title = "Error Loading TTS Voices!"
+		} else {
+			switch m.lastSelectedItem.typeSelected {
+			case "ttsSelectVoiceGet":
+				m.list.Title = "Select the Voice you want to replace"
+				m.list.SetItems(menuCurrentTTSVoices(msg.voices, "ttsEngineSet"))
+			case "ttsSelectVoiceSet":
+				m.list.Title = "Select the Voice you want to SET"
+				m.list.SetItems(menuCurrentTTSVoices(msg.voices, "ttsSet"))
+			}
+			m.list.ResetFilter()
+		}
+	case flowsResultMsg:
+		m.spinning = false
+		if msg.err != nil {
+			utils.TuiLogger("Error", fmt.Sprintf("Flows Load Error: %v", msg.err))
+			m.list.Title = "Error Loading Flows!"
+		} else {
+			utils.TuiLogger("Info", "flowsResultMsg!!!!!")
+			ttsData.flows = msg.flowsData
+			switch m.lastSelectedItem.typeSelected {
+			case "ttsSet":
+				m.list.Title = "These flows include " + ttsData.ttsGet + ". Update one or ALL"
+				m.list.SetItems(menuCurrentFlows(msg.flowsData, "flowUpdate"))
+			case "flowBackupSelect":
+				m.list.Title = "Select the flow you want to backup"
+				m.list.SetItems(menuCurrentFlows(msg.flowsData, "flowBackup"))
+			case "commonModule":
+				var commonModules []map[string]string
+				for _, flow := range msg.flowsData {
+					if flow["flowType"] == "COMMONMODULE" {
+						commonModules = append(commonModules, flow)
+					}
+				}
+				ttsData.flows = commonModules
+				m.list.Title = "Select Common Module flow that you have updated"
+				m.list.SetItems(menuCurrentFlows(commonModules, "commonDependency"))
+			case "commonDependency":
+				m.list.Title = "Select from one or ALL of the flows that depend on " + ttsData.ttsSet
+				m.list.SetItems(menuCurrentFlows(msg.flowsData, "commonRefresh"))
+			}
+			m.list.ResetFilter()
+		}
+
+	case spinner.TickMsg:
+		var var_cmd tea.Cmd // var_cmd to avoid conflict with package
+		m.spinner, var_cmd = m.spinner.Update(msg)
+		cmds = append(cmds, var_cmd)
 	}
 
-	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	return m, cmd
+	if !m.spinning {
+		updatedList, cmd := m.list.Update(msg)
+		m.list = updatedList
+		cmds = append(cmds, cmd)
+	}
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m model) View() string {
+	if m.spinning {
+		title := fmt.Sprintf("%s%s", m.spinner.View(), bannerStyleLoading(" "+m.list.Title))
+		m.list.SetShowTitle(false)
+		return docStyle.Render("\n\n\n" + title + m.list.View())
+	}
 	return docStyle.Render(m.list.View())
 }
 
 func main() {
-	// initialize logger
 	err := utils.TuiLoggerStart()
 	if err != nil {
 		panic("Failed to initialize logger: " + err.Error())
@@ -250,7 +372,11 @@ func main() {
 		}
 	}
 
-	m := model{list: list.New(menuMain(), list.NewDefaultDelegate(), 0, 0)}
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#3c71a8"))
+
+	m := model{list: list.New(menuMain(), list.NewDefaultDelegate(), 0, 0), spinner: s, spinning: false}
 	m.list.Title = "McPhee11 TUI - Genesys Cloud ORG: " + orgName
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
