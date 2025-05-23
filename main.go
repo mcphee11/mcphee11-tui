@@ -33,7 +33,7 @@ func (i item) Title() string        { return i.title }
 func (i item) Description() string  { return i.desc }
 func (i item) Id() string           { return i.id }
 func (i item) TypeSelected() string { return i.typeSelected }
-func (i item) FilterValue() string  { return i.title }
+func (i item) FilterValue() string  { return i.title + " " + i.desc }
 
 type model struct {
 	list             list.Model
@@ -257,6 +257,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.list.Title = "Release notes"
 			m.list.SetItems(menuSearchReleaseNotes(msg.results))
+			m.list.Filter = utils.CustomSubstringFilter
 			m.list.ResetFilter()
 		}
 
