@@ -122,9 +122,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 		if msg.String() == "enter" {
-			if m.list.FilterState() == list.Filtering || m.list.FilterState() == list.FilterApplied {
+			if m.list.FilterState() == list.Filtering {
 				// Let the list handle the filter input first
-				//break
+				break
 			}
 			selected := m.list.SelectedItem().(item)
 			m.lastSelectedItem = selected
