@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"time"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -121,10 +123,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
+		if msg.String() == "ctrl+e" {
+			var csvData [][]string
+			csvData = append(csvData, []string{"Title", "Description", "Type", "ID"})
+			for _, row := range m.list.VisibleItems() {
+				csvData = append(csvData, []string{row.(item).Title(), row.(item).Description(), row.(item).TypeSelected(), row.(item).Id()})
+			}
+			err := utils.ExportToCSV(csvData, fmt.Sprintf("export_%s.csv", fmt.Sprint(time.Now().Unix())))
+			if err != nil {
+				utils.TuiLogger("Error", fmt.Sprintf("Export Error: %s", err))
+			}
+			m.list.Title = "Exported to CSV"
+		}
 		if msg.String() == "enter" {
-			if m.list.FilterState() == list.Filtering || m.list.FilterState() == list.FilterApplied {
+			if m.list.FilterState() == list.Filtering {
 				// Let the list handle the filter input first
-				//break
+				break
 			}
 			selected := m.list.SelectedItem().(item)
 			m.lastSelectedItem = selected
@@ -350,6 +364,10 @@ func (m model) View() string {
 	return docStyle.Render(m.list.View())
 }
 
+func customKeys() []key.Binding {
+	return []key.Binding{key.NewBinding(key.WithKeys("ctrl+e"), key.WithHelp("ctrl+e", "export to csv"))}
+}
+
 func main() {
 	err := utils.TuiLoggerStart()
 	if err != nil {
@@ -379,6 +397,7 @@ func main() {
 
 	m := model{list: list.New(menuMain(), list.NewDefaultDelegate(), 0, 0), spinner: s, spinning: false}
 	m.list.Title = "McPhee11 TUI - Genesys Cloud ORG: " + orgName
+	m.list.AdditionalFullHelpKeys = customKeys
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
