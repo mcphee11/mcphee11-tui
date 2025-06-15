@@ -15,6 +15,7 @@ import (
 	"github.com/mcphee11/mcphee11-tui/genesysLogin"
 	"github.com/mcphee11/mcphee11-tui/googleBotMigrate"
 	"github.com/mcphee11/mcphee11-tui/pwaBanking"
+	"github.com/mcphee11/mcphee11-tui/searchAllOtherReleases"
 	"github.com/mcphee11/mcphee11-tui/searchReleaseNotes"
 	"github.com/mcphee11/mcphee11-tui/ttsChanger"
 	"github.com/mcphee11/mcphee11-tui/utils"
@@ -62,6 +63,10 @@ type searchResultsMsg struct {
 	results []map[string]string
 	err     error
 }
+type searchOtherResultsMsg struct {
+	results []map[string]string
+	err     error
+}
 type ttsEnginesMsg struct {
 	engines []map[string]string
 	err     error
@@ -80,6 +85,12 @@ func fetchSearchResultsCmd(query string) tea.Cmd {
 	return func() tea.Msg {
 		results := searchReleaseNotes.SearchReleaseNotes(query)
 		return searchResultsMsg{results: results, err: nil}
+	}
+}
+func fetchSearchOtherResultsCmd(query string) tea.Cmd {
+	return func() tea.Msg {
+		results := searchAllOtherReleases.SearchAllOtherReleases(query)
+		return searchOtherResultsMsg{results: results, err: nil}
 	}
 }
 func fetchTTSEnginesCmd(config *platformclientv2.Configuration) tea.Cmd {
@@ -228,6 +239,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.spinning = true
 				m.list.Title = "Searching Release Notes..."
 				cmds = append(cmds, m.spinner.Tick, fetchSearchResultsCmd(" "))
+				// search release notes section
+			case "searchOtherReleases":
+				m.spinning = true
+				m.list.Title = "Searching Other Release Notes..."
+				cmds = append(cmds, m.spinner.Tick, fetchSearchOtherResultsCmd(" "))
 			case "backMain":
 				m.list.Title = "McPhee11 TUI - Genesys Cloud ORG: " + orgName
 				m.list.SetItems(menuMain())
@@ -270,6 +286,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.list.Title = "Error searching release notes!"
 		} else {
 			m.list.Title = "Release notes"
+			m.list.SetItems(menuSearchReleaseNotes(msg.results))
+			m.list.Filter = utils.CustomSubstringFilter
+			m.list.ResetFilter()
+		}
+	case searchOtherResultsMsg:
+		m.spinning = false
+		if msg.err != nil {
+			utils.TuiLogger("Error", fmt.Sprintf("Search Error: %v", msg.err))
+			m.list.Title = "Error searching release notes!"
+		} else {
+			m.list.Title = "Other Release notes"
 			m.list.SetItems(menuSearchReleaseNotes(msg.results))
 			m.list.Filter = utils.CustomSubstringFilter
 			m.list.ResetFilter()
@@ -422,10 +449,11 @@ func main() {
 
 func menuMain() []list.Item {
 	return []list.Item{
-		item{typeSelected: "searchReleases", title: "Search Release Notes", desc: "Search the Genesys Cloud Release Notes"},
+		item{typeSelected: "searchReleases", title: "Search Release Notes", desc: "Search the Genesys Cloud Core Release Notes"},
+		item{typeSelected: "searchOtherReleases", title: "Search Other Release Notes", desc: "Search the Genesys Cloud Release Notes For: Embedded Clients, Data Actions, SCIM & Desktop Clients"},
 		item{typeSelected: "pwaBanking", title: "Build Banking PWA", desc: "Building a PWA mobile app for demos based on banking"},
 		item{typeSelected: "ttsEngineGet", title: "Update TTS", desc: "Update the TTS engine used in your Flows"},
-		item{typeSelected: "commonModule", title: "Common Modules", desc: "Update the flows that have a specifc common module set"},
+		item{typeSelected: "commonModule", title: "Common Modules", desc: "Update the flows that have a specific common module set"},
 		item{typeSelected: "botMigrate", title: "Google Bot Migration", desc: "Easily migrate Google Bots (ES & CX) to Digital Bots or Knowledge Base for Copilot"},
 		item{typeSelected: "flowBackupSelect", title: "Backup Flows", desc: "Take a backup of your Genesys Flows"},
 		item{typeSelected: "help", title: "Help Menu", desc: "Open the help menu"},
