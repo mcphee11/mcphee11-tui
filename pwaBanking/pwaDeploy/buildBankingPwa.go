@@ -15,6 +15,32 @@ import (
 var pwaTemplates embed.FS
 
 func buildBankingPwa(flagName, flagShortName, flagColor, flagIcon, flagBanner, flagRegion, flagEnvironment, flagDeploymentId, flagBucketName string, p *tea.Program) {
+	if flagName == "d" {
+		flagName = "Demo"
+	}
+	if flagShortName == "d" {
+		flagShortName = "demo"
+	}
+	if flagColor == "d" {
+		flagColor = "#004164"
+	}
+	if flagIcon == "d" {
+		thisDir, _ := os.Getwd()
+		flagIcon = fmt.Sprintf("%s/demo/svgs/Genesys_Logo_Transparent.jpg", thisDir)
+	}
+	if flagBanner == "d" {
+		thisDir, _ := os.Getwd()
+		flagBanner = fmt.Sprintf("%s/demo/svgs/Genesys_Banner.png", thisDir)
+	}
+	if flagRegion == "d" {
+		flagRegion = "mypurecloud.com.au"
+	}
+	if flagEnvironment == "d" {
+		flagEnvironment = "apse2"
+	}
+	if flagDeploymentId == "d" {
+		flagDeploymentId = "12345678"
+	}
 
 	// Helper to send status messages to the UI thread
 	sendMsgToUI := func(msg tea.Msg) {

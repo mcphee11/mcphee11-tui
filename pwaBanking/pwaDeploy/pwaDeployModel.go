@@ -58,7 +58,7 @@ func PwaLoadingMain(nameIn, shortNameIn, colorIn, iconIn, bannerIn, regionIn, en
 	environment = environmentIn
 	deploymentId = deploymentIdIn
 	bucketName = bucketNameIn
-	status = fmt.Sprintf("Ready. Press 's' to start build of PWA Locally. Once completed you will be able to Deploy it")
+	status = "Ready. Press 's' to start build of PWA Locally. Once completed you will be able to Deploy it"
 
 	m := model{
 		progress: progress.New(progress.WithDefaultGradient()),
