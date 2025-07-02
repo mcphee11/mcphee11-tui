@@ -76,3 +76,53 @@ func GenesysLogin() (configReturned *platformclientv2.Configuration, err error) 
 	}
 	return nil, fmt.Errorf("Genesys Cloud CLI (gc) not found and environment variables are not set cant login to Genesys Cloud")
 }
+
+func GenesysCreds() (region string, clientId string, secret string, err error) {
+	region = os.Getenv("MCPHEE11_TUI_REGION")
+	clientId = os.Getenv("MCPHEE11_TUI_CLIENT_ID")
+	secret = os.Getenv("MCPHEE11_TUI_SECRET")
+
+	if region != "" && clientId != "" && secret != "" {
+		return region, clientId, secret, nil
+	} else {
+		// Check if GC CLI is installed
+		gcPath, err := exec.LookPath("gc")
+		if err != nil {
+			utils.TuiLogger("Error", "No Genesys Cloud Creds")
+		}
+
+		// If GC installed use that to login
+		if gcPath != "" {
+			profile := os.Getenv("MCPHEE11_TUI_PROFILE")
+			if profile == "" {
+				profile = "default"
+			}
+			configFile := os.ExpandEnv("$HOME/.gc/config.toml")
+			tomlData, err := os.ReadFile(configFile)
+			if err != nil {
+				return "", "", "", fmt.Errorf("failed to read config file: %w", err)
+			}
+
+			type profileConfig struct {
+				Environment string `toml:"environment"`
+				ClientId    string `toml:"client_credentials"`
+				Secret      string `toml:"client_secret"`
+			}
+			var configMap map[string]profileConfig
+			if _, err := toml.Decode(string(tomlData), &configMap); err != nil {
+				return "", "", "", fmt.Errorf("failed to parse config file: %w", err)
+			}
+
+			profileSection, ok := configMap[profile]
+			if !ok {
+				return "", "", "", fmt.Errorf("profile %s not found in config file", profile)
+			}
+			region = profileSection.Environment
+			clientId = profileSection.ClientId
+			secret = profileSection.Secret
+
+			return region, clientId, secret, nil
+		}
+	}
+	return "", "", "", fmt.Errorf("Genesys Cloud CLI (gc) not found and environment variables are not set cant login to Genesys Cloud")
+}

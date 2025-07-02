@@ -9,12 +9,19 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/mcphee11/mcphee11-tui/genesysLogin"
 	"github.com/mcphee11/mcphee11-tui/utils"
 )
 
 // This function runs in a goroutine and performs the backup.
 // It sends messages back to the Tea program via the 'p' instance.
 func RunBackupProcess(flowId string, flows []map[string]string, totalFlows int, p *tea.Program) {
+	// Get ORG details
+	region, clientId, secret, err := genesysLogin.GenesysCreds()
+	if err != nil {
+		utils.TuiLogger("Fatal", fmt.Sprintf("Failed to get Genesys Cloud credentials: %v", err))
+	}
+
 	// Helper to send status messages to the UI thread
 	sendMsgToUI := func(msg tea.Msg) {
 		if p != nil {
@@ -26,21 +33,18 @@ func RunBackupProcess(flowId string, flows []map[string]string, totalFlows int, 
 		utils.TuiLogger(t, s) // logging output if enabled
 	}
 
-	region := os.Getenv("MCPHEE11_TUI_REGION")
 	if region == "" {
 		sendStatusUpdate("Error", "ERROR: environment variable MCPHEE11_TUI_REGION is not set")
 		sendMsgToUI(backupCompleteMsg{})
 		return
 	}
 
-	clientId := os.Getenv("MCPHEE11_TUI_CLIENT_ID")
 	if clientId == "" {
 		sendStatusUpdate("Error", "ERROR: environment variable MCPHEE11_TUI_CLIENT_ID is not set")
 		sendMsgToUI(backupCompleteMsg{})
 		return
 	}
 
-	secret := os.Getenv("MCPHEE11_TUI_SECRET")
 	if secret == "" {
 		sendStatusUpdate("Error", "ERROR: environment variable MCPHEE11_TUI_SECRET is not set")
 		sendMsgToUI(backupCompleteMsg{})
@@ -49,7 +53,7 @@ func RunBackupProcess(flowId string, flows []map[string]string, totalFlows int, 
 
 	folderBackup = fmt.Sprintf("flowsBackup_%s", strconv.FormatInt(time.Now().Unix(), 10))
 	sendStatusUpdate("Info", fmt.Sprintf("Creating backup directory: %s", folderBackup))
-	err := os.Mkdir(folderBackup, 0777)
+	err = os.Mkdir(folderBackup, 0777)
 	if err != nil {
 		sendStatusUpdate("Error", fmt.Sprintf("ERROR: creating directory %s: %v", folderBackup, err))
 		sendMsgToUI(backupCompleteMsg{})
