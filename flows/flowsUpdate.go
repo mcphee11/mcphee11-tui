@@ -9,12 +9,19 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/mcphee11/mcphee11-tui/genesysLogin"
 	"github.com/mcphee11/mcphee11-tui/utils"
 )
 
 // This function runs in a goroutine and performs the update.
 // It sends messages back to the Tea program via the 'p' instance.
 func RunUpdateProcess(totalFlows int, p *tea.Program, updateType string) {
+	// Get ORG details
+	region, clientId, secret, err := genesysLogin.GenesysCreds()
+	if err != nil {
+		utils.TuiLogger("Fatal", fmt.Sprintf("Failed to get Genesys Cloud credentials: %v", err))
+	}
+
 	// Helper to send status messages to the UI thread
 	sendMsgToUI := func(msg tea.Msg) {
 		if p != nil {
@@ -29,21 +36,18 @@ func RunUpdateProcess(totalFlows int, p *tea.Program, updateType string) {
 	// Sent to zero out progress bar
 	sendMsgToUI(flowProcessedMsg{})
 
-	region := os.Getenv("MCPHEE11_TUI_REGION")
 	if region == "" {
 		sendStatusUpdate("Error", "ERROR: environment variable MCPHEE11_TUI_REGION is not set")
 		sendMsgToUI(updateCompleteMsg{})
 		return
 	}
 
-	clientId := os.Getenv("MCPHEE11_TUI_CLIENT_ID")
 	if clientId == "" {
 		sendStatusUpdate("Error", "ERROR: environment variable MCPHEE11_TUI_CLIENT_ID is not set")
 		sendMsgToUI(updateCompleteMsg{})
 		return
 	}
 
-	secret := os.Getenv("MCPHEE11_TUI_SECRET")
 	if secret == "" {
 		sendStatusUpdate("Error", "ERROR: environment variable MCPHEE11_TUI_SECRET is not set")
 		sendMsgToUI(updateCompleteMsg{})
@@ -52,7 +56,7 @@ func RunUpdateProcess(totalFlows int, p *tea.Program, updateType string) {
 
 	folderUpdate := fmt.Sprintf("flowsUpdate_%s", strconv.FormatInt(time.Now().Unix(), 10))
 	sendStatusUpdate("Info", fmt.Sprintf("Creating update directory: %s", folderUpdate))
-	err := os.Mkdir(folderUpdate, 0777)
+	err = os.Mkdir(folderUpdate, 0777)
 	if err != nil {
 		sendStatusUpdate("Info", fmt.Sprintf("ERROR: creating directory %s: %v", folderUpdate, err))
 		sendMsgToUI(updateCompleteMsg{})

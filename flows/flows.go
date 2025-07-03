@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/mcphee11/mcphee11-tui/genesysLogin"
 	"github.com/mcphee11/mcphee11-tui/utils"
 	"github.com/mypurecloud/platform-client-sdk-go/platformclientv2"
 )
@@ -144,7 +145,13 @@ func GetFlowsCUSTOM(config *platformclientv2.Configuration, flows []string) (flo
 
 func getFlowsPageCUSTOM(config *platformclientv2.Configuration, flows []string, pageNumber int) (response *FlowentitylistingCUSTOM, err error) {
 
-	url := fmt.Sprintf("https://api.mypurecloud.com.au/api/v2/flows?pageNumber=%d&pageSize=500&sortBy=asc&id=%s", pageNumber, strings.Join(flows, ","))
+	//used to get the region from the config until SDK is fixed
+	region, _, _, err := genesysLogin.GenesysCreds()
+	if err != nil {
+		utils.TuiLogger("Fatal", fmt.Sprintf("Failed to get Genesys Cloud credentials: %v", err))
+	}
+
+	url := fmt.Sprintf("https://api.%s/api/v2/flows?pageNumber=%d&pageSize=500&sortBy=asc&id=%s", region, pageNumber, strings.Join(flows, ","))
 	token := config.AccessToken
 
 	// Create a new HTTP client
