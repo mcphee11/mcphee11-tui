@@ -4,7 +4,6 @@ import (
 	"embed"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -88,58 +87,24 @@ func buildBankingPwa(flagName, flagShortName, flagColor, flagIcon, flagBanner, f
 
 	// ------------------ create icons ------------------
 	sendStatusUpdate("Info", "Generating App Icons this can take a min so please wait...")
-	icons, err := pwaTemplates.ReadFile("_pwaTemplates/icons.sh")
-	if err != nil {
-		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) %s", err))
-		_ = os.RemoveAll(flagShortName)
-		return
-	}
-	formattedIcons := strings.ReplaceAll(string(icons), "$icon", flagIcon)
-	err = os.WriteFile(fmt.Sprintf("%s/icons.sh", flagShortName), []byte(formattedIcons), 0777)
-	if err != nil {
-		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) %s", err))
-		_ = os.RemoveAll(flagShortName)
-		return
-	}
-	currentDir, err := os.Getwd()
-	if err != nil {
-		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) error getting working dir: %s", err))
-		_ = os.RemoveAll(flagShortName)
-		return
-	}
-	cmdIcon := exec.Command("./icons.sh")
-	cmdIcon.Dir = fmt.Sprintf("%s/%s", currentDir, flagShortName)
-
-	if err := cmdIcon.Run(); err != nil {
-		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) icons.sh error: %s", err))
-		_ = os.RemoveAll(flagShortName)
-		return
-	}
-	os.Remove(fmt.Sprintf("%s/icons.sh", flagShortName))
+	GenerateIcons(flagIcon, flagShortName)
 	sendStatusUpdate("Info", "Generating icons completed... starting build additional files...")
 	sendMsgToUI(flowProcessedMsg{})
 	// ------------------ move local image files ------------------
 	utils.TuiLogger("Info", "(buildBankingPwa) moving local images")
-	// TODO add windows support for "/"
-	fileNameIcon := lastString(strings.Split(flagIcon, "/"))
-	pasteIcon := flagShortName + "/" + fileNameIcon
-	cmdCpIcon := exec.Command("cp", flagIcon, pasteIcon)
 
-	if err := cmdCpIcon.Run(); err != nil {
-		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) pasteIcon: %s", pasteIcon))
-		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) copy icon error: %s", err))
+	fileNameIcon := lastString(strings.Split(flagIcon, "/"))
+	err = utils.CopyFile(flagIcon, fmt.Sprintf("%s/%s", flagShortName, fileNameIcon))
+	if err != nil {
 		_ = os.RemoveAll(flagShortName)
-		return
+		utils.TuiLogger("Fatal", fmt.Sprintf("(buildBankingPwa) copy icon error: %s", err))
 	}
 	// TODO add windows support for "/"
 	fileNameBanner := lastString(strings.Split(flagBanner, "/"))
-	pasteBanner := flagShortName + "/" + fileNameBanner
-	cmdCpBanner := exec.Command("cp", flagBanner, pasteBanner)
-	if err := cmdCpBanner.Run(); err != nil {
-		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) pasteBanner: %s flagBanner: %s", pasteBanner, flagBanner))
-		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) copy banner error: %s", err))
+	err = utils.CopyFile(flagIcon, fmt.Sprintf("%s/%s", flagShortName, fileNameBanner))
+	if err != nil {
 		_ = os.RemoveAll(flagShortName)
-		return
+		utils.TuiLogger("Fatal", fmt.Sprintf("(buildBankingPwa) copy banner error: %s", err))
 	}
 	// ------------------ build home.html file ------------------
 	sendStatusUpdate("Info", "Generating home.html file")
