@@ -96,6 +96,11 @@ func getDependencyTracking(config *platformclientv2.Configuration, objType, sear
 		os.Exit(1)
 	}
 	for _, entity := range *data.ConsumingResources {
+		// Skip deleted entities
+		if entity.Deleted != nil && *entity.Deleted {
+			continue
+		}
+		
 		flows = append(flows, map[string]string{
 			"title":   *entity.Name,
 			"id":      *entity.Id,
