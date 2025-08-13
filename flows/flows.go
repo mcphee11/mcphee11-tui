@@ -140,7 +140,7 @@ func GetFlowsCUSTOM(config *platformclientv2.Configuration, flows []string) (flo
 		allFlows = append(allFlows, map[string]string{
 			"title":    *entity.Name,
 			"id":       *entity.Id,
-			"desc":     *entity.PublishedVersion.Id,
+			"desc":     *entity.VarType + " | " + *entity.PublishedVersion.Id,
 			"version":  *entity.PublishedVersion.Id,
 			"flowType": *entity.VarType,
 		})
