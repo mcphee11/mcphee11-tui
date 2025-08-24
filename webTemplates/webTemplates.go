@@ -25,9 +25,8 @@ func WebTemplatesList() []map[string]string {
 	return list
 }
 
-func BuildWebTemplate(template string) []map[string]string {
+func BuildWebTemplate(template, projectName string) []map[string]string {
 	utils.TuiLogger("Info", fmt.Sprintf("Building web template: %s", template))
-	projectName := "project"
 
 	// ------------ Create project folder -----------------
 	err := os.Mkdir(projectName, 0o777)

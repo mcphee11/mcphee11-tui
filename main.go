@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"time"
@@ -101,7 +102,7 @@ func fetchWebTempaltesCmd() tea.Cmd {
 
 func fetchBuildWebTemplateCmd(template string) tea.Cmd {
 	return func() tea.Msg {
-		results := webtemplates.BuildWebTemplate(template)
+		results := webtemplates.BuildWebTemplate(template, "project")
 		return webBuildTemplateMsg{results: results, err: nil}
 	}
 }
@@ -469,6 +470,36 @@ func main() {
 	err := utils.TuiLoggerStart()
 	if err != nil {
 		panic("Failed to initialize logger: " + err.Error())
+	}
+
+	// check for CLI flag to skip TUI
+	if os.Args[1] != "" {
+		switch os.Args[1] {
+		case "version":
+			currentVersion := utils.GetVersion()
+			laterVersion, newerVersion, err := utils.CheckForNewerVersion(currentVersion)
+			if err != nil {
+				utils.TuiLogger("Info", fmt.Sprintf("Unable to check for new version: %s", err))
+				fmt.Println(currentVersion + " (update check failed)\n")
+			} else {
+				if laterVersion {
+					fmt.Printf("%s - Newer version: %s. Update with: go install github.com/mcphee11/mcphee11-tui@latest\n", currentVersion, newerVersion)
+				} else {
+					fmt.Println(currentVersion + " (up to date)")
+				}
+			}
+			os.Exit(1)
+		case "webOne", "webTwo", "webThree":
+			projectName := "project"
+			if os.Args[2] != "" {
+				projectName = os.Args[2]
+			}
+			webtemplates.BuildWebTemplate(os.Args[1], projectName)
+			fmt.Printf("created project type: %s in folder: %s\n", os.Args[1], projectName)
+			os.Exit(1)
+		default:
+			utils.TuiLogger("Info", fmt.Sprintf("Cli Arg not supported: %s", os.Args[1]))
+		}
 	}
 
 	// Check for genesys cloud environment
