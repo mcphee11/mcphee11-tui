@@ -473,7 +473,7 @@ func main() {
 	}
 
 	// check for CLI flag to skip TUI
-	if os.Args[1] != "" {
+	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "version":
 			currentVersion := utils.GetVersion()
@@ -491,7 +491,7 @@ func main() {
 			os.Exit(1)
 		case "webOne", "webTwo", "webThree":
 			projectName := "project"
-			if os.Args[2] != "" {
+			if len(os.Args) == 3 {
 				projectName = os.Args[2]
 			}
 			webtemplates.BuildWebTemplate(os.Args[1], projectName)
