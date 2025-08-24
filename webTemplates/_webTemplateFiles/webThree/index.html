@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<!-- Created as an example by https://github.com/mcphee11 Version 5 -->
+<html>
+
+<head>
+  <meta name="robots" content="noindex" />
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title></title>
+  <meta name="Template" content="" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Genesys CSS https://spark.genesys.com/ In PROD set a version https://www.jsdelivr.com/package/npm/genesys-spark-components -->
+  <link no-cors
+    href="https://cdn.jsdelivr.net/npm/genesys-spark-components@latest/dist/genesys-webcomponents/genesys-webcomponents.min.css"
+    rel="stylesheet" />
+  <script no-cors type="module"
+    src="https://cdn.jsdelivr.net/npm/genesys-spark-components@latest/dist/genesys-webcomponents/genesys-webcomponents.esm.min.js"></script>
+  <!-- Genesys SDK info https://developer.genesys.cloud/  In PROD set a version -->
+  <script src="https://sdk-cdn.mypurecloud.com/javascript/latest/purecloud-platform-client-v2.min.js"></script>
+  <script src="https://sdk-cdn.mypurecloud.com/client-apps/2.6.7/purecloud-client-app-sdk.js"></script>
+  <script src="/index.js"></script>
+  <link href="/index.css" rel="stylesheet" />
+</head>
+
+<body onload="start()">
+  <div style="display: inline-flex">
+    <gux-dropdown filter-type="starts-with" placeholder="UTC-00:00" id="timeZone" style="width: 150px; padding: 8px">
+      <gux-listbox aria-label="Time Zone">
+        <gux-option value="-12:00">UTC-12:00</gux-option><gux-option value="-11:00">UTC-11:00</gux-option><gux-option
+          value="-10:00">UTC-10:00</gux-option><gux-option value="-09:30">UTC-09:30</gux-option><gux-option
+          value="-09:00">UTC-09:00</gux-option><gux-option value="-08:00">UTC-08:00</gux-option><gux-option
+          value="-07:00">UTC-07:00</gux-option><gux-option value="-06:00">UTC-06:00</gux-option><gux-option
+          value="-05:00">UTC-05:00</gux-option><gux-option value="-04:00">UTC-04:00</gux-option><gux-option
+          value="-03:30">UTC-03:30</gux-option><gux-option value="-03:00">UTC-03:00</gux-option><gux-option
+          value="-02:00">UTC-02:00</gux-option><gux-option value="-01:00">UTC-01:00</gux-option><gux-option
+          value="-00:00">UTC+00:00</gux-option><gux-option value="+00:00">UTC+00:00</gux-option><gux-option
+          value="+01:00">UTC+01:00</gux-option><gux-option value="+02:00">UTC+02:00</gux-option><gux-option
+          value="+03:00">UTC+03:00</gux-option><gux-option value="+03:30">UTC+03:30</gux-option><gux-option
+          value="+04:00">UTC+04:00</gux-option><gux-option value="+04:30">UTC+04:30</gux-option><gux-option
+          value="+05:00">UTC+05:00</gux-option><gux-option value="+05:30">UTC+05:30</gux-option><gux-option
+          value="+05:45">UTC+05:45</gux-option><gux-option value="+06:00">UTC+06:00</gux-option><gux-option
+          value="+06:30">UTC+06:30</gux-option><gux-option value="+07:00">UTC+07:00</gux-option><gux-option
+          value="+08:00">UTC+08:00</gux-option><gux-option value="+08:45">UTC+08:45</gux-option><gux-option
+          value="+09:00">UTC+09:00</gux-option><gux-option value="+09:30">UTC+09:30</gux-option><gux-option
+          value="+10:00">UTC+10:00</gux-option><gux-option value="+10:30">UTC+10:30</gux-option><gux-option
+          value="+11:00">UTC+11:00</gux-option><gux-option value="+12:00">UTC+12:00</gux-option><gux-option
+          value="+12:45">UTC+12:45</gux-option><gux-option value="+13:00">UTC+13:00</gux-option><gux-option
+          value="+14:00">UTC+14:00</gux-option>
+      </gux-listbox>
+    </gux-dropdown>
+    <gux-datepicker id="datepicker" style="padding: 8px" mode="range" value="" number-of-months="2"></gux-datepicker>
+    <gux-button style="padding: 8px" accent="secondary" onclick="thisMonth()">This Month</gux-button>
+    <gux-button style="padding: 8px" accent="secondary" onclick="last30days()">Last 30 Days</gux-button>
+    <gux-button style="padding: 8px" accent="primary" onclick="getData()">Search</gux-button>
+    <gux-button style="padding: 8px" accent="secondary" onclick="clearData()">Clear</gux-button>
+    <gux-button id="download" style="padding: 8px; display: none" accent="ghost"
+      onclick="buildCsv()">Download</gux-button>
+  </div>
+  <div></div>
+  <div id="spinner" style="justify-self: center; padding: 8px; display: none">
+    <gux-radial-loading id="loading" class="loading" screenreader-text="Loading..."></gux-radial-loading>
+  </div>
+  <div id="tableLocation" style="padding: 8px"></div>
+  <script>
+    //MINIFIED_JS
+  </script>
+</body>
+<style>
+  #MINIFIED_CSS
+</style>
+
+</html>

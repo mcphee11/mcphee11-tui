@@ -19,14 +19,17 @@ import (
 	"github.com/mcphee11/mcphee11-tui/searchReleaseNotes"
 	"github.com/mcphee11/mcphee11-tui/ttsChanger"
 	"github.com/mcphee11/mcphee11-tui/utils"
+	"github.com/mcphee11/mcphee11-tui/webTemplates"
 	"github.com/mypurecloud/platform-client-sdk-go/platformclientv2"
 )
 
-var Debug bool
-var docStyle = lipgloss.NewStyle().Margin(1, 2)
-var bannerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFDF5")).Background(lipgloss.Color("#655ad5")).Padding(0, 1)
-var bannerStyleLoading = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFDF5")).Background(lipgloss.Color("#655ad5")).Padding(0, 1).Render
-var bannerWarningStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#000000")).Background(lipgloss.Color("#f7d720")).Padding(0, 1)
+var (
+	Debug              bool
+	docStyle           = lipgloss.NewStyle().Margin(1, 2)
+	bannerStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFDF5")).Background(lipgloss.Color("#655ad5")).Padding(0, 1)
+	bannerStyleLoading = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFDF5")).Background(lipgloss.Color("#655ad5")).Padding(0, 1).Render
+	bannerWarningStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#000000")).Background(lipgloss.Color("#f7d720")).Padding(0, 1)
+)
 
 type item struct {
 	title, desc, typeSelected, id string
@@ -59,6 +62,14 @@ type ttsSelection struct {
 }
 
 // --- Message Types for Async Operations ---
+type webTemplatesResultsMsg struct {
+	results []map[string]string
+	err     error
+}
+type webBuildTemplateMsg struct {
+	results []map[string]string
+	err     error
+}
 type searchResultsMsg struct {
 	results []map[string]string
 	err     error
@@ -81,30 +92,48 @@ type flowsResultMsg struct { // Renamed to avoid conflict with flows package
 }
 
 // --- Cmds for Async Operations ---
+func fetchWebTempaltesCmd() tea.Cmd {
+	return func() tea.Msg {
+		results := webtemplates.WebTemplatesList()
+		return webTemplatesResultsMsg{results: results, err: nil}
+	}
+}
+
+func fetchBuildWebTemplateCmd(template string) tea.Cmd {
+	return func() tea.Msg {
+		results := webtemplates.BuildWebTemplate(template)
+		return webBuildTemplateMsg{results: results, err: nil}
+	}
+}
+
 func fetchSearchResultsCmd(query string) tea.Cmd {
 	return func() tea.Msg {
 		results := searchReleaseNotes.SearchReleaseNotes(query)
 		return searchResultsMsg{results: results, err: nil}
 	}
 }
+
 func fetchSearchOtherResultsCmd(query string) tea.Cmd {
 	return func() tea.Msg {
 		results := searchAllOtherReleases.SearchAllOtherReleases(query)
 		return searchOtherResultsMsg{results: results, err: nil}
 	}
 }
+
 func fetchTTSEnginesCmd(config *platformclientv2.Configuration) tea.Cmd {
 	return func() tea.Msg {
 		engines := ttsChanger.CurrentTTSEngines(config)
 		return ttsEnginesMsg{engines: engines, err: nil}
 	}
 }
+
 func fetchTTSVoicesCmd(config *platformclientv2.Configuration, engineID string) tea.Cmd {
 	return func() tea.Msg {
 		voices := ttsChanger.CurrentTTSVoices(config, engineID)
 		return ttsVoicesMsg{voices: voices, err: nil}
 	}
 }
+
 func fetchFlowsCmd(config *platformclientv2.Configuration, searchType string, searchValue string) tea.Cmd {
 	return func() tea.Msg {
 		flowsResult := flows.GetFlows(config, searchType, searchValue)
@@ -119,9 +148,11 @@ func fetchFlowsCUSTOMCmd(config *platformclientv2.Configuration, flowTypes []str
 	}
 }
 
-var ttsData ttsSelection
-var genesysLoginConfig *platformclientv2.Configuration
-var orgName string
+var (
+	ttsData            ttsSelection
+	genesysLoginConfig *platformclientv2.Configuration
+	orgName            string
+)
 
 func (m model) Init() tea.Cmd {
 	return m.spinner.Tick
@@ -234,6 +265,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "commonRefresh":
 				m.list.Title = "RePublishing Common Modules"
 				return m, tea.Quit
+			// chose a web template
+			case "webTemplate":
+				m.spinning = true
+				m.list.Title = "Which template do you want?"
+				cmds = append(cmds, m.spinner.Tick, fetchWebTempaltesCmd())
+			case "webOne":
+				m.spinning = true
+				m.list.Title = "Building the template now..."
+				cmds = append(cmds, m.spinner.Tick, fetchBuildWebTemplateCmd("webOne"))
+			case "webTwo":
+				m.spinning = true
+				m.list.Title = "Building the template now..."
+				cmds = append(cmds, m.spinner.Tick, fetchBuildWebTemplateCmd("webTwo"))
+			case "webThree":
+				m.spinning = true
+				m.list.Title = "Building the template now..."
+				cmds = append(cmds, m.spinner.Tick, fetchBuildWebTemplateCmd("webThree"))
 			// search release notes section
 			case "searchReleases":
 				m.spinning = true
@@ -279,6 +327,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.list.SetSize(msg.Width-h, msg.Height-v)
 
 		// --- Handle Async Operation Results ---
+	case webTemplatesResultsMsg:
+		m.spinning = false
+		if msg.err != nil {
+			utils.TuiLogger("Error", fmt.Sprintf("NeoVim Templates Error: %v", msg.err))
+			m.list.Title = "Error showing neovim templates"
+		} else {
+			m.list.Title = "NeoVim Templates"
+			m.list.SetItems(menuWebTemplates(msg.results))
+			m.list.Filter = utils.CustomSubstringFilter
+			m.list.ResetFilter()
+		}
+	case webBuildTemplateMsg:
+		m.spinning = false
+		if msg.err != nil {
+			utils.TuiLogger("Error", fmt.Sprintf("NeoVim Building Templates Error: %v", msg.err))
+			m.list.Title = "Error Building neovim template"
+		} else {
+			m.list.Title = "NeoVim Template Build Success"
+			m.list.SetItems(menuWebTemplates(msg.results))
+			m.list.Filter = utils.CustomSubstringFilter
+			m.list.ResetFilter()
+		}
 	case searchResultsMsg:
 		m.spinning = false
 		if msg.err != nil {
@@ -456,9 +526,19 @@ func menuMain() []list.Item {
 		item{typeSelected: "commonModule", title: "Common Modules", desc: "Update the flows that have a specific common module set"},
 		item{typeSelected: "botMigrate", title: "Google Bot Migration", desc: "Easily migrate Google Bots (ES & CX) to Digital Bots or Knowledge Base for Copilot"},
 		item{typeSelected: "flowBackupSelect", title: "Backup Flows", desc: "Take a backup of your Genesys Flows"},
+		item{typeSelected: "webTemplate", title: "Build Web Templates", desc: "Web Templates for NeoVim (by the way) cli flag capable"},
 		item{typeSelected: "help", title: "Help Menu", desc: "Open the help menu"},
-		item{typeSelected: "version", title: "Version", desc: "Display installed version"},
+		item{typeSelected: "version", title: "Version", desc: "Display installed version cli flag capable"},
 	}
+}
+
+func menuWebTemplates(search []map[string]string) []list.Item {
+	var list []list.Item
+	for i := range search {
+		list = append(list, item{typeSelected: search[i]["id"], id: search[i]["id"], title: search[i]["title"], desc: search[i]["desc"]})
+	}
+	list = append(list, item{typeSelected: "backMain", id: "backMain", title: "Back", desc: "Back to the previous menu"})
+	return list
 }
 
 func menuSearchReleaseNotes(search []map[string]string) []list.Item {
