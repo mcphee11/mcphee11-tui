@@ -13,7 +13,7 @@ func SearchReleaseNotes(searchString string) []map[string]string {
 	errCount := 0
 	matchedCount := 0
 
-	c := colly.NewCollector(colly.Async(false)) //removed async to stop 429
+	c := colly.NewCollector(colly.Async(false)) // removed async to stop 429
 
 	c.Limit(&colly.LimitRule{
 		// limit the parallel requests to 1 request at a time to stop 429
@@ -26,11 +26,10 @@ func SearchReleaseNotes(searchString string) []map[string]string {
 	})
 
 	c.OnHTML("ul", func(e *colly.HTMLElement) {
-
 		if strings.Contains(strings.ToLower(e.Text), strings.ToLower(searchString)) {
-			var release = map[string]string{
-				"section": e.DOM.Prev().Text() + " | " + strings.TrimPrefix(strings.TrimSuffix(e.DOM.NextAllFiltered("p.view").First().Children().AttrOr("href", ""), "/"), "https://help.mypurecloud.com/releasenote/"),
-				"link":    e.DOM.NextAllFiltered("p.view").First().Children().AttrOr("href", ""),
+			release := map[string]string{
+				"section": e.DOM.Prev().Text() + " | " + strings.TrimPrefix(strings.TrimSuffix(e.DOM.Parent().NextAllFiltered("p").First().Children().AttrOr("href", ""), "/"), "/release-notes/genesys-cloud/"),
+				"link":    "https://help.genesys.cloud" + e.DOM.Parent().NextAllFiltered("p").First().Children().AttrOr("href", ""),
 				"notes":   strings.TrimPrefix(strings.TrimSuffix(strings.ReplaceAll(e.Text, "\n", " | "), " | "), " | "),
 			}
 			releases = append(releases, release)
@@ -38,7 +37,18 @@ func SearchReleaseNotes(searchString string) []map[string]string {
 		}
 	})
 
-	c.Visit("https://help.mypurecloud.com/monthly-archive/")
+	c.Visit("https://help.genesys.cloud/release-notes/genesys-cloud/archive/2026")
+	c.Visit("https://help.genesys.cloud/release-notes/genesys-cloud/archive/2025")
+	c.Visit("https://help.genesys.cloud/release-notes/genesys-cloud/archive/2024")
+	c.Visit("https://help.genesys.cloud/release-notes/genesys-cloud/archive/2023")
+	c.Visit("https://help.genesys.cloud/release-notes/genesys-cloud/archive/2022")
+	c.Visit("https://help.genesys.cloud/release-notes/genesys-cloud/archive/2021")
+	c.Visit("https://help.genesys.cloud/release-notes/genesys-cloud/archive/2020")
+	c.Visit("https://help.genesys.cloud/release-notes/genesys-cloud/archive/2019")
+	c.Visit("https://help.genesys.cloud/release-notes/genesys-cloud/archive/2018")
+	c.Visit("https://help.genesys.cloud/release-notes/genesys-cloud/archive/2017")
+	c.Visit("https://help.genesys.cloud/release-notes/genesys-cloud/archive/2016")
+	c.Visit("https://help.genesys.cloud/release-notes/genesys-cloud/archive/2015")
 
 	c.Wait()
 
