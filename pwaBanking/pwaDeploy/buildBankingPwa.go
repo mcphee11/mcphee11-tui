@@ -227,21 +227,7 @@ func buildBankingPwa(flagName, flagShortName, flagColor, flagIcon, flagBanner, f
 		return
 	}
 	sendStatusUpdate("Info", "Generating genesys.js file")
-	// ------------------ build service-worker.js file ------------------
-	utils.TuiLogger("Info", "(buildBankingPwa) Generating service-worker.js")
-	serviceWorker, err := pwaTemplates.ReadFile("_pwaTemplates/service-worker.js")
-	if err != nil {
-		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) %s", err))
-		_ = os.RemoveAll(flagShortName)
-		return
-	}
-	formattedServiceWorker := strings.ReplaceAll(string(serviceWorker), "LOGO", fileNameIcon)
-	err = os.WriteFile(fmt.Sprintf("%s/service-worker.js", flagShortName), []byte(formattedServiceWorker), 0777)
-	if err != nil {
-		utils.TuiLogger("Error", fmt.Sprintf("(buildBankingPwa) %s", err))
-		_ = os.RemoveAll(flagShortName)
-		return
-	}
+
 	sendStatusUpdate("Info", "Build COMPLETED")
 	sendMsgToUI(flowProcessedMsg{})
 }

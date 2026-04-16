@@ -2,30 +2,8 @@
 let url = new URL(document.location.href)
 let reason = url.searchParams.get('reason')
 
-//USed for voice to digital deflection
-if (reason == 'digitalUpgrade') {
-  window.history.pushState(null, 'PWA', './home.html')
-  sessionStorage.setItem('reason', 'digitalUpgrade')
-  setTimeout(function (e) {
-    Genesys('command', 'Messenger.open')
-  }, 1500)
-}
-
-//Used for oauth redirect
-if (reason == 'oauth') {
-  window.history.pushState(null, 'PWA', './home.html')
-  setTimeout(function (e) {
-    Genesys('command', 'Messenger.open')
-  }, 1500)
-  setTimeout(function (f) {
-    Genesys('command', 'MessagingService.sendMessage', {
-      message: 'logged in',
-    })
-  }, 2000)
-}
-
 //Notification Start----->
-Notification.requestPermission().then(function (permission) {
+Notification.requestPermission().then(function(permission) {
   // If the user accepts, let's create a notification
   if (permission === 'granted') {
     console.log('notification permission granted')
@@ -33,7 +11,7 @@ Notification.requestPermission().then(function (permission) {
 })
 
 //set user login details if any
-Genesys('subscribe', 'Messenger.opened', function () {
+Genesys('subscribe', 'Messenger.opened', function() {
   console.log('messenger opened')
   try {
     let reason = sessionStorage.getItem('reason')
@@ -65,22 +43,7 @@ Genesys('subscribe', 'Messenger.opened', function () {
   }
 })
 
-Genesys('subscribe', 'MessagingService.messagesReceived', function (o) {
-  //terms and conditions webform
-  if (o.data.messages[0].text === 'webform') {
-    setTimeout(function () {
-      questionForm()
-      Genesys('command', 'Messenger.close')
-    }, 3000)
-    return
-  }
-  //login form
-  if (o.data.messages[0].text === 'You will be directed to login a moment.') {
-    setTimeout(function () {
-      oauth()
-    }, 3000)
-    return
-  } //You will be directed to login a moment.
+Genesys('subscribe', 'MessagingService.messagesReceived', function(o) {
   if (o.data.messages[0].text === 'dispute resolved') {
     clearDispute()
     let transaction = sessionStorage.getItem('transaction')
@@ -100,37 +63,13 @@ Genesys('subscribe', 'MessagingService.messagesReceived', function (o) {
     //console.error(err)
   }
 })
-Genesys('subscribe', 'Conversations.closed', function (o) {
+Genesys('subscribe', 'Conversations.closed', function(o) {
   sessionStorage.setItem('gc_widget', 'false')
 })
-Genesys('subscribe', 'Conversations.opened', function (o) {
+Genesys('subscribe', 'Conversations.opened', function(o) {
   sessionStorage.setItem('gc_widget', 'true')
 })
 //Notification End----->
-
-function questionForm() {
-  let main = document.getElementById('main')
-  let form = `
-        <div>
-        <fieldset>
-          <label for="terms">Terms</label>
-          <p>Do you agree with the terms and conditions as per your contract</p>
-        </fieldset>
-        <fieldset style="display: block">
-          <input id="agree" type="checkbox" />
-          <label for="checkbox">I Agree</label>
-        </fieldset>
-        <fieldset style="display: block">
-          <input id="disagree" type="checkbox" />
-          <label for="checkbox">I Disagree</label>
-        </fieldset>
-        <div class="formButtons">
-        <button onclick="closeForm('Form completed')" class="login">Submit</button>
-        </div>
-      </div>`
-
-  main.innerHTML = form
-}
 
 function closeForm(message) {
   Genesys('command', 'Messenger.open')
@@ -140,7 +79,3 @@ function closeForm(message) {
   buildHome()
 }
 
-function oauth() {
-  console.log('oauth')
-  document.location.href = './index.html?reason=oauth'
-}

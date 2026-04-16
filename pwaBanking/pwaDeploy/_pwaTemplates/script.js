@@ -22,138 +22,6 @@ if (document.location.href.includes('home.html')) {
   buildHome()
 }
 
-// ----------------- NOTIFICATIONS CLIENT -------------------
-
-//Request Notification permission
-Notification.requestPermission().then(function (permission) {
-  if (permission === 'granted') {
-    console.log('notification permission granted')
-  }
-})
-
-async function subscribeUser() {
-  if ('serviceWorker' in navigator) {
-    try {
-      const registration = await navigator.serviceWorker.ready
-
-      // Check for existing subscription
-      const existingSubscription = await registration.pushManager.getSubscription()
-
-      if (existingSubscription) {
-        await existingSubscription.unsubscribe()
-        console.log('Existing subscription unsubscribed.')
-      }
-
-      const publicKeyResponse = await fetch('https://YOUR_PUSH_NOTIFICATION_SERVER', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Basic ${btoa('user:password')}`,
-        },
-        body: JSON.stringify({ type: 'vapidPublicKey' }),
-      })
-      const publicKey = await publicKeyResponse.text()
-
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: publicKey,
-      })
-
-      let body = {
-        type: 'subscribe',
-        subscription: subscription,
-      }
-
-      await fetch('https://YOUR_PUSH_NOTIFICATION_SERVER', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Basic ${btoa('user:password')}`,
-        },
-        body: JSON.stringify(body),
-      })
-
-      console.log('User subscribed')
-    } catch (error) {
-      console.error('Subscription error:', error)
-    }
-  }
-}
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    try {
-      await navigator.serviceWorker.register('service-worker.js') // Adjust path
-      console.log('Service Worker registered')
-      //await subscribeUser() // uncomment if you want to use the Push notification server
-    } catch (error) {
-      console.error('Service Worker registration failed:', error)
-    }
-  })
-}
-
-function generateRandomChallenge() {
-  let length = 32
-  let randomValues = new Uint8Array(length)
-  window.crypto.getRandomValues(randomValues)
-  return randomValues
-}
-
-navigator.serviceWorker.addEventListener('message', async (event) => {
-  console.log('notification clicked!!!')
-  if (!navigator.credentials || !navigator.credentials.create || !navigator.credentials.get) {
-    return alert('Your browser does not support the Web Authentication API')
-  }
-
-  let credentials = await navigator.credentials.create({
-    publicKey: {
-      challenge: generateRandomChallenge(),
-      rp: { name: 'Progressier', id: window.location.hostname },
-      //here you'll want to pass the user's info
-      user: { id: new Uint8Array(16), name: `${document.getElementById('name')}@genesys.com`, displayName: document.getElementById('name') },
-      pubKeyCredParams: [
-        { type: 'public-key', alg: -7 },
-        { type: 'public-key', alg: -257 },
-      ],
-      timeout: 60000,
-      authenticatorSelection: { residentKey: 'preferred', requireResidentKey: false, userVerification: 'preferred' },
-      attestation: 'none',
-      extensions: { credProps: true },
-    },
-  })
-  //in a real app, you'll store the credentials against the user's profile in your DB
-  //here we'll just save it in a global variable
-  window.currentPasskey = credentials
-  console.log(credentials)
-})
-
-async function sendPushNotification(message) {
-  try {
-    let body = {
-      type: 'send-push',
-      message: message,
-    }
-    const response = await fetch('YOUR_NOTIFICATION_SERVER', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Basic ${btoa('genesys:jeff')}`,
-      },
-      body: JSON.stringify(body),
-    })
-
-    if (response.ok) {
-      console.log('Push notification sent successfully')
-    } else {
-      console.error('Failed to send push notification')
-    }
-  } catch (error) {
-    console.error('Error sending push notification:', error)
-  }
-}
-
-// ----------------- END NOTIFICATIONS -------------------
-
 document.addEventListener('click', (e) => {
   //logout clicked
   if (e.target.id.startsWith('logout')) {
@@ -280,7 +148,7 @@ document.addEventListener('click', (e) => {
 
   // modal chat button clicked
   if (e.target.id.startsWith('message')) {
-    Genesys('subscribe', 'MessagingService.ready', function () {
+    Genesys('subscribe', 'MessagingService.ready', function() {
       Genesys('command', 'MessagingService.sendMessage', {
         message: `I'm enquiring about the transaction: ${document.getElementById(transaction).children[1].children[1].innerText}`,
       })
@@ -344,22 +212,6 @@ function updateDisputes(card) {
   if (!disputes) {
     localStorage.setItem('disputes', JSON.stringify([card]))
   }
-}
-
-//sends message to service worker returns promise
-async function sendMessage(message) {
-  return new Promise(function (resolve, reject) {
-    var messageChannel = new MessageChannel()
-    messageChannel.port1.onmessage = function (event) {
-      if (event.data.error) {
-        reject(event.data.error)
-      } else {
-        resolve(event.data)
-        serviceWorkerMessage(event.data)
-      }
-    }
-    navigator.serviceWorker.controller.postMessage(message, [messageChannel.port2])
-  })
 }
 
 async function clickToCallAuth() {
